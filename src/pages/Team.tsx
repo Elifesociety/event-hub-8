@@ -64,7 +64,6 @@ export default function Team() {
   const [newMember, setNewMember] = useState({
     name: "",
     mobile: "",
-    responsibilities: "",
     shift_details: ""
   });
 
@@ -89,8 +88,8 @@ export default function Team() {
   };
 
   const handleAddMember = async () => {
-    if (!newMember.name || !newMember.responsibilities) {
-      toast.error("Please fill in name and role");
+    if (!newMember.name) {
+      toast.error("Please fill in name");
       return;
     }
 
@@ -98,7 +97,6 @@ export default function Team() {
     const memberData: TablesInsert<"team_members"> = {
       name: newMember.name,
       mobile: newMember.mobile || null,
-      responsibilities: newMember.responsibilities,
       shift_details: newMember.shift_details || null,
       role: formRole
     };
@@ -112,7 +110,7 @@ export default function Team() {
       console.error(error);
     } else {
       toast.success("Team member added successfully");
-      setNewMember({ name: "", mobile: "", responsibilities: "", shift_details: "" });
+      setNewMember({ name: "", mobile: "", shift_details: "" });
       setShowForm(false);
       fetchTeamMembers();
     }
@@ -178,7 +176,6 @@ export default function Team() {
                         variant={formRole === role ? "default" : "outline"}
                         onClick={() => {
                           setFormRole(role);
-                          setNewMember({ ...newMember, responsibilities: "" });
                         }}
                         size="sm"
                       >
@@ -198,20 +195,6 @@ export default function Team() {
                     onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
                     placeholder="Enter full name"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="responsibility">Responsibility</Label>
-                  <select
-                    id="responsibility"
-                    value={newMember.responsibilities}
-                    onChange={(e) => setNewMember({ ...newMember, responsibilities: e.target.value })}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">Select responsibility</option>
-                    {roleConfig[formRole].responsibilities.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>

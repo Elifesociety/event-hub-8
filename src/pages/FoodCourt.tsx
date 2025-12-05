@@ -35,7 +35,6 @@ export default function FoodCourt() {
     counter_name: "",
     participant_name: "",
     mobile: "",
-    email: "",
     registration_fee: ""
   });
 
@@ -79,7 +78,6 @@ export default function FoodCourt() {
           counter_name: stall.counter_name,
           participant_name: stall.participant_name,
           mobile: stall.mobile || null,
-          email: stall.email || null,
           registration_fee: stall.registration_fee ? parseFloat(stall.registration_fee) : 0,
           is_verified: false
         })
@@ -90,7 +88,7 @@ export default function FoodCourt() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stalls'] });
-      setNewStall({ counter_name: "", participant_name: "", mobile: "", email: "", registration_fee: "" });
+      setNewStall({ counter_name: "", participant_name: "", mobile: "", registration_fee: "" });
       setShowStallForm(false);
       toast.success("Stall registered successfully!");
     },
@@ -102,13 +100,11 @@ export default function FoodCourt() {
   // Add product mutation
   const addProductMutation = useMutation({
     mutationFn: async (product: { item_name: string; cost_price: number; stall_id: string }) => {
-      const selling_price = Math.ceil(product.cost_price * (1 + EVENT_MARGIN / 100));
       const { data, error } = await supabase
         .from('products')
         .insert({
           item_name: product.item_name,
           cost_price: product.cost_price,
-          selling_price,
           event_margin: EVENT_MARGIN,
           stall_id: product.stall_id
         })
@@ -264,16 +260,6 @@ export default function FoodCourt() {
                         value={newStall.mobile}
                         onChange={(e) => setNewStall({ ...newStall, mobile: e.target.value })}
                         placeholder="Enter phone number"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={newStall.email}
-                        onChange={(e) => setNewStall({ ...newStall, email: e.target.value })}
-                        placeholder="Enter email"
                       />
                     </div>
                     <div className="space-y-2">
