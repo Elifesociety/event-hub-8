@@ -291,7 +291,7 @@ export type Database = {
         | "stall_counter"
         | "employment_booking"
         | "employment_registration"
-      team_role: "admin" | "official" | "volunteer"
+      team_role: "administration" | "volunteer" | "stage_crew" | "stall_crew"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -425,7 +425,7 @@ export const Constants = {
         "employment_booking",
         "employment_registration",
       ],
-      team_role: ["admin", "official", "volunteer"],
+      team_role: ["administration", "volunteer", "stage_crew", "stall_crew"],
     },
   },
 } as const

@@ -11,11 +11,12 @@ import {
   Shield,
   UserCheck,
   Phone,
-  Mail,
   Briefcase,
   Calendar,
   Trash2,
-  Loader2
+  Loader2,
+  Theater,
+  Store
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,10 +24,33 @@ import { toast } from "sonner";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 type TeamMember = Tables<"team_members">;
+type TeamRole = "administration" | "volunteer" | "stage_crew" | "stall_crew";
 
-const roles = {
-  official: ["Event Director", "Finance Manager", "Operations Head", "Marketing Lead", "Logistics Coordinator"],
-  volunteer: ["Registration Desk", "Food Court Assistant", "Stage Coordinator", "Security Support", "Information Booth"]
+const roleConfig = {
+  administration: {
+    label: "Administration",
+    icon: Shield,
+    color: "bg-primary/10 text-primary",
+    responsibilities: ["Event Director", "Finance Manager", "Operations Head", "Marketing Lead", "Logistics Coordinator"]
+  },
+  volunteer: {
+    label: "Volunteer", 
+    icon: UserCheck,
+    color: "bg-info/10 text-info",
+    responsibilities: ["Registration Desk", "Information Booth", "General Support", "Crowd Management"]
+  },
+  stage_crew: {
+    label: "Stage Crew",
+    icon: Theater,
+    color: "bg-warning/10 text-warning",
+    responsibilities: ["Sound Engineer", "Light Technician", "Stage Manager", "Backstage Coordinator", "MC/Anchor"]
+  },
+  stall_crew: {
+    label: "Stall Crew",
+    icon: Store,
+    color: "bg-success/10 text-success",
+    responsibilities: ["Food Court Assistant", "Stall Coordinator", "Sales Support", "Inventory Manager"]
+  }
 };
 
 const shifts = ["Morning (8AM-2PM)", "Afternoon (12PM-6PM)", "Evening (2PM-8PM)", "Night (6PM-10PM)"];
@@ -36,10 +60,9 @@ export default function Team() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [formType, setFormType] = useState<"official" | "volunteer">("official");
+  const [formRole, setFormRole] = useState<TeamRole>("administration");
   const [newMember, setNewMember] = useState({
     name: "",
-    email: "",
     mobile: "",
     responsibilities: "",
     shift_details: ""
@@ -74,11 +97,10 @@ export default function Team() {
     setSaving(true);
     const memberData: TablesInsert<"team_members"> = {
       name: newMember.name,
-      email: newMember.email || null,
       mobile: newMember.mobile || null,
       responsibilities: newMember.responsibilities,
-      shift_details: formType === "volunteer" ? newMember.shift_details : null,
-      role: formType
+      shift_details: newMember.shift_details || null,
+      role: formRole
     };
 
     const { error } = await supabase
@@ -90,7 +112,7 @@ export default function Team() {
       console.error(error);
     } else {
       toast.success("Team member added successfully");
-      setNewMember({ name: "", email: "", mobile: "", responsibilities: "", shift_details: "" });
+      setNewMember({ name: "", mobile: "", responsibilities: "", shift_details: "" });
       setShowForm(false);
       fetchTeamMembers();
     }
@@ -112,8 +134,7 @@ export default function Team() {
     }
   };
 
-  const officials = team.filter(m => m.role === "official");
-  const volunteers = team.filter(m => m.role === "volunteer");
+  const getTeamByRole = (role: TeamRole) => team.filter(m => m.role === role);
 
   if (loading) {
     return (
@@ -131,7 +152,7 @@ export default function Team() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Team Management</h1>
-            <p className="text-muted-foreground mt-1">Manage officials and volunteers</p>
+            <p className="text-muted-foreground mt-1">Manage team members across all roles</p>
           </div>
           <Button onClick={() => setShowForm(!showForm)} variant="accent">
             <Plus className="h-4 w-4 mr-2" />
@@ -146,21 +167,26 @@ export default function Team() {
             </CardHeader>
             <CardContent>
               <div className="mb-4">
-                <div className="flex gap-2">
-                  <Button 
-                    variant={formType === "official" ? "default" : "outline"}
-                    onClick={() => setFormType("official")}
-                  >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Official
-                  </Button>
-                  <Button 
-                    variant={formType === "volunteer" ? "default" : "outline"}
-                    onClick={() => setFormType("volunteer")}
-                  >
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    Volunteer
-                  </Button>
+                <Label className="mb-2 block">Select Role</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(roleConfig) as TeamRole[]).map((role) => {
+                    const config = roleConfig[role];
+                    const Icon = config.icon;
+                    return (
+                      <Button 
+                        key={role}
+                        variant={formRole === role ? "default" : "outline"}
+                        onClick={() => {
+                          setFormRole(role);
+                          setNewMember({ ...newMember, responsibilities: "" });
+                        }}
+                        size="sm"
+                      >
+                        <Icon className="h-4 w-4 mr-2" />
+                        {config.label}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
@@ -174,28 +200,18 @@ export default function Team() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="responsibility">Responsibility</Label>
                   <select
-                    id="role"
+                    id="responsibility"
                     value={newMember.responsibilities}
                     onChange={(e) => setNewMember({ ...newMember, responsibilities: e.target.value })}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
-                    <option value="">Select role</option>
-                    {roles[formType].map(r => (
+                    <option value="">Select responsibility</option>
+                    {roleConfig[formRole].responsibilities.map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newMember.email}
-                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                    placeholder="Enter email"
-                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
@@ -206,22 +222,20 @@ export default function Team() {
                     placeholder="Enter phone number"
                   />
                 </div>
-                {formType === "volunteer" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="shift">Shift</Label>
-                    <select
-                      id="shift"
-                      value={newMember.shift_details}
-                      onChange={(e) => setNewMember({ ...newMember, shift_details: e.target.value })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="">Select shift</option>
-                      {shifts.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="shift">Shift</Label>
+                  <select
+                    id="shift"
+                    value={newMember.shift_details}
+                    onChange={(e) => setNewMember({ ...newMember, shift_details: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Select shift</option>
+                    {shifts.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="md:col-span-2 flex gap-2">
                   <Button onClick={handleAddMember} disabled={saving}>
                     {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -234,123 +248,80 @@ export default function Team() {
           </Card>
         )}
 
-        <Tabs defaultValue="officials" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="officials" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Officials ({officials.length})
-            </TabsTrigger>
-            <TabsTrigger value="volunteers" className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4" />
-              Volunteers ({volunteers.length})
-            </TabsTrigger>
+        <Tabs defaultValue="administration" className="space-y-6">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+            {(Object.keys(roleConfig) as TeamRole[]).map((role) => {
+              const config = roleConfig[role];
+              const Icon = config.icon;
+              const count = getTeamByRole(role).length;
+              return (
+                <TabsTrigger key={role} value={role} className="flex items-center gap-1 text-xs sm:text-sm">
+                  <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">{config.label}</span>
+                  <span className="sm:hidden">{config.label.split(' ')[0]}</span>
+                  <span className="ml-1">({count})</span>
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
-          <TabsContent value="officials">
-            {officials.length === 0 ? (
-              <Card className="p-8 text-center text-muted-foreground">
-                <p>No officials added yet. Click "Add Member" to get started.</p>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {officials.map((member) => (
-                  <Card key={member.id} className="animate-fade-in">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Users className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground">{member.name}</h3>
-                            <Badge variant="secondary">{member.responsibilities}</Badge>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(member.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                        {member.email && (
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-3 w-3" />
-                            {member.email}
-                          </div>
-                        )}
-                        {member.mobile && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3 w-3" />
-                            {member.mobile}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
+          {(Object.keys(roleConfig) as TeamRole[]).map((role) => {
+            const config = roleConfig[role];
+            const Icon = config.icon;
+            const members = getTeamByRole(role);
+            
+            return (
+              <TabsContent key={role} value={role}>
+                {members.length === 0 ? (
+                  <Card className="p-8 text-center text-muted-foreground">
+                    <p>No {config.label.toLowerCase()} members added yet. Click "Add Member" to get started.</p>
                   </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="volunteers">
-            {volunteers.length === 0 ? (
-              <Card className="p-8 text-center text-muted-foreground">
-                <p>No volunteers added yet. Click "Add Member" to get started.</p>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {volunteers.map((member) => (
-                  <Card key={member.id} className="animate-fade-in">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-full bg-info/10 flex items-center justify-center">
-                            <UserCheck className="h-6 w-6 text-info" />
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {members.map((member) => (
+                      <Card key={member.id} className="animate-fade-in">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${config.color}`}>
+                                <Icon className="h-6 w-6" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-foreground">{member.name}</h3>
+                                <Badge variant="secondary">{member.responsibilities}</Badge>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => handleDelete(member.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground">{member.name}</h3>
-                            <Badge variant="outline">{member.responsibilities}</Badge>
+                          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                            {member.shift_details && (
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-3 w-3" />
+                                {member.shift_details}
+                              </div>
+                            )}
+                            {member.mobile && (
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-3 w-3" />
+                                {member.mobile}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(member.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                        {member.shift_details && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            {member.shift_details}
-                          </div>
-                        )}
-                        {member.responsibilities && (
-                          <div className="flex items-center gap-2">
-                            <Briefcase className="h-3 w-3" />
-                            {member.responsibilities}
-                          </div>
-                        )}
-                        {member.mobile && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3 w-3" />
-                            {member.mobile}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </div>
     </PageLayout>

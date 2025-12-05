@@ -9,55 +9,115 @@ import {
   MapPin, 
   Clock,
   Edit,
-  Trash2
+  Trash2,
+  ExternalLink
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
-interface Program {
-  id: string;
-  name: string;
-  date: string;
-  time: string;
-  venue: string;
-  description: string;
-}
-
-const initialPrograms: Program[] = [
-  { id: "1", name: "Opening Ceremony", date: "2024-03-15", time: "09:00", venue: "Main Stage", description: "Grand opening with cultural performances" },
-  { id: "2", name: "Tech Workshop", date: "2024-03-15", time: "11:00", venue: "Hall A", description: "Interactive technology workshop" },
-  { id: "3", name: "Food Festival Launch", date: "2024-03-15", time: "13:00", venue: "Food Court", description: "Launch of food stalls" },
-  { id: "4", name: "Cultural Night", date: "2024-03-15", time: "18:00", venue: "Amphitheater", description: "Evening cultural programs" },
-];
+type Program = Tables<"programs">;
 
 const venues = [
-  { id: "main", name: "Main Stage", position: { x: 50, y: 20 } },
-  { id: "halla", name: "Hall A", position: { x: 20, y: 50 } },
-  { id: "hallb", name: "Hall B", position: { x: 80, y: 50 } },
-  { id: "food", name: "Food Court", position: { x: 50, y: 70 } },
-  { id: "amphi", name: "Amphitheater", position: { x: 50, y: 90 } },
+  { id: "main", name: "Main Stage" },
+  { id: "halla", name: "Hall A" },
+  { id: "hallb", name: "Hall B" },
+  { id: "food", name: "Food Court" },
+  { id: "amphi", name: "Amphitheater" },
 ];
 
+// Google Maps embed URL - replace with your actual venue location
+const GOOGLE_MAPS_EMBED_URL = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3783.2649912453065!2d73.85674327519619!3d18.520430782572647!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2c07f4b4b7e33%3A0x8b7c03f4f4b4b7e3!2sPune%2C%20Maharashtra!5e0!3m2!1sen!2sin!4v1699999999999!5m2!1sen!2sin";
+
 export default function Programs() {
-  const [programs, setPrograms] = useState<Program[]>(initialPrograms);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [mapUrl, setMapUrl] = useState(GOOGLE_MAPS_EMBED_URL);
+  const [showMapInput, setShowMapInput] = useState(false);
   const [newProgram, setNewProgram] = useState({
     name: "",
     date: "",
-    time: "",
+    start_time: "",
+    end_time: "",
     venue: "",
-    description: ""
+    description: "",
+    location_details: ""
   });
 
-  const handleAddProgram = () => {
-    if (newProgram.name && newProgram.date && newProgram.time && newProgram.venue) {
-      setPrograms([...programs, { ...newProgram, id: Date.now().toString() }]);
-      setNewProgram({ name: "", date: "", time: "", venue: "", description: "" });
+  useEffect(() => {
+    fetchPrograms();
+  }, []);
+
+  const fetchPrograms = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("programs")
+      .select("*")
+      .order("date", { ascending: true });
+    
+    if (error) {
+      toast.error("Failed to fetch programs");
+      console.error(error);
+    } else {
+      setPrograms(data || []);
+    }
+    setLoading(false);
+  };
+
+  const handleAddProgram = async () => {
+    if (!newProgram.name || !newProgram.date || !newProgram.start_time || !newProgram.venue) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setSaving(true);
+    const programData: TablesInsert<"programs"> = {
+      name: newProgram.name,
+      date: newProgram.date,
+      start_time: newProgram.start_time,
+      end_time: newProgram.end_time || newProgram.start_time,
+      venue: newProgram.venue,
+      description: newProgram.description || null,
+      location_details: newProgram.location_details || null
+    };
+
+    const { error } = await supabase
+      .from("programs")
+      .insert(programData);
+    
+    if (error) {
+      toast.error("Failed to add program");
+      console.error(error);
+    } else {
+      toast.success("Program added successfully");
+      setNewProgram({ name: "", date: "", start_time: "", end_time: "", venue: "", description: "", location_details: "" });
       setShowForm(false);
+      fetchPrograms();
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteProgram = async (id: string) => {
+    const { error } = await supabase
+      .from("programs")
+      .delete()
+      .eq("id", id);
+    
+    if (error) {
+      toast.error("Failed to delete program");
+      console.error(error);
+    } else {
+      toast.success("Program deleted");
+      setPrograms(programs.filter(p => p.id !== id));
     }
   };
 
-  const handleDeleteProgram = (id: string) => {
-    setPrograms(programs.filter(p => p.id !== id));
+  const handleMapUrlUpdate = () => {
+    setShowMapInput(false);
+    toast.success("Map URL updated");
   };
 
   return (
@@ -113,14 +173,25 @@ export default function Programs() {
                     onChange={(e) => setNewProgram({ ...newProgram, date: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="time">Time</Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    value={newProgram.time}
-                    onChange={(e) => setNewProgram({ ...newProgram, time: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="start_time">Start Time</Label>
+                    <Input
+                      id="start_time"
+                      type="time"
+                      value={newProgram.start_time}
+                      onChange={(e) => setNewProgram({ ...newProgram, start_time: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end_time">End Time</Label>
+                    <Input
+                      id="end_time"
+                      type="time"
+                      value={newProgram.end_time}
+                      onChange={(e) => setNewProgram({ ...newProgram, end_time: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="description">Description</Label>
@@ -132,7 +203,9 @@ export default function Programs() {
                   />
                 </div>
                 <div className="md:col-span-2 flex gap-2">
-                  <Button onClick={handleAddProgram}>Save Program</Button>
+                  <Button onClick={handleAddProgram} disabled={saving}>
+                    {saving ? "Saving..." : "Save Program"}
+                  </Button>
                   <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
                 </div>
               </div>
@@ -144,77 +217,123 @@ export default function Programs() {
           {/* Programs List */}
           <div>
             <h2 className="text-xl font-semibold mb-4">Scheduled Programs</h2>
-            <div className="space-y-4">
-              {programs.map((program) => (
-                <Card key={program.id} className="animate-fade-in">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                          <CalendarDays className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{program.name}</h3>
-                          <p className="text-sm text-muted-foreground">{program.description}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {program.date} at {program.time}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {program.venue}
-                            </span>
+            {loading ? (
+              <Card className="p-8 text-center text-muted-foreground">
+                <p>Loading programs...</p>
+              </Card>
+            ) : programs.length === 0 ? (
+              <Card className="p-8 text-center text-muted-foreground">
+                <p>No programs scheduled yet. Click "Add Program" to get started.</p>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {programs.map((program) => (
+                  <Card key={program.id} className="animate-fade-in">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                            <CalendarDays className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">{program.name}</h3>
+                            <p className="text-sm text-muted-foreground">{program.description}</p>
+                            <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {program.date} | {program.start_time} - {program.end_time}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {program.venue}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDeleteProgram(program.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteProgram(program.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Venue Map */}
+          {/* Venue Map - Google Maps Embed */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">Venue Map</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Venue Map</h2>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowMapInput(!showMapInput)}
+              >
+                <Edit className="h-3 w-3 mr-2" />
+                Update Map
+              </Button>
+            </div>
+
+            {showMapInput && (
+              <Card className="mb-4 p-4">
+                <div className="space-y-3">
+                  <Label htmlFor="mapUrl">Google Maps Embed URL</Label>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    1. Go to <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">Google Maps</a>
+                    <br />2. Search your venue location
+                    <br />3. Click Share → Embed a map → Copy HTML
+                    <br />4. Paste the src URL from the iframe below
+                  </div>
+                  <Input
+                    id="mapUrl"
+                    value={mapUrl}
+                    onChange={(e) => setMapUrl(e.target.value)}
+                    placeholder="Paste Google Maps embed URL here"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleMapUrlUpdate}>Save</Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowMapInput(false)}>Cancel</Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             <Card className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="relative bg-muted h-96">
-                  <div className="absolute inset-4 border-2 border-dashed border-border rounded-lg">
-                    {venues.map((venue) => (
-                      <div
-                        key={venue.id}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
-                        style={{ left: `${venue.position.x}%`, top: `${venue.position.y}%` }}
-                      >
-                        <div className="flex flex-col items-center">
-                          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <MapPin className="h-4 w-4 text-primary-foreground" />
-                          </div>
-                          <span className="mt-1 text-xs font-medium text-foreground bg-card px-2 py-0.5 rounded shadow-sm">
-                            {venue.name}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
-                    Event Venue Layout
-                  </div>
+                  <iframe
+                    src={mapUrl}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Venue Location Map"
+                  />
+                </div>
+                <div className="p-3 bg-muted/50 border-t flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Event Venue Location</span>
+                  <a 
+                    href="https://maps.google.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary flex items-center gap-1 hover:underline"
+                  >
+                    Open in Google Maps
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
               </CardContent>
             </Card>
