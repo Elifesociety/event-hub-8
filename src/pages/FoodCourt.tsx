@@ -25,7 +25,7 @@ import type { Tables } from "@/integrations/supabase/types";
 type Stall = Tables<"stalls">;
 type Product = Tables<"products">;
 
-const EVENT_MARGIN = 20;
+
 
 export default function FoodCourt() {
   const queryClient = useQueryClient();
@@ -44,7 +44,8 @@ export default function FoodCourt() {
   const [newProduct, setNewProduct] = useState({
     item_name: "",
     cost_price: "",
-    selling_price: ""  // MRP - manually entered
+    selling_price: "",  // MRP - manually entered
+    event_margin: "20"  // Commission rate %
   });
 
   // Fetch stalls
@@ -103,14 +104,14 @@ export default function FoodCourt() {
 
   // Add product mutation
   const addProductMutation = useMutation({
-    mutationFn: async (product: { item_name: string; cost_price: number; selling_price: number; stall_id: string }) => {
+    mutationFn: async (product: { item_name: string; cost_price: number; selling_price: number; event_margin: number; stall_id: string }) => {
       const { data, error } = await supabase
         .from('products')
         .insert({
           item_name: product.item_name,
           cost_price: product.cost_price,
           selling_price: product.selling_price,  // MRP manually set
-          event_margin: EVENT_MARGIN,  // Stored but calculated at payment time
+          event_margin: product.event_margin,  // Commission rate for bill balance calculation
           stall_id: product.stall_id
         })
         .select()
@@ -120,7 +121,7 @@ export default function FoodCourt() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      setNewProduct({ item_name: "", cost_price: "", selling_price: "" });
+      setNewProduct({ item_name: "", cost_price: "", selling_price: "", event_margin: "20" });
       setShowProductForm(false);
       toast.success("Product added successfully!");
     },
@@ -195,6 +196,7 @@ export default function FoodCourt() {
         item_name: newProduct.item_name,
         cost_price: parseFloat(newProduct.cost_price),
         selling_price: parseFloat(newProduct.selling_price),
+        event_margin: parseFloat(newProduct.event_margin) || 20,
         stall_id: selectedStall
       });
     } else {
@@ -379,10 +381,10 @@ export default function FoodCourt() {
               <Card className="mb-6 animate-slide-up">
                 <CardHeader>
                   <CardTitle>Add Product</CardTitle>
-                  <p className="text-sm text-muted-foreground">20% margin calculated only at payment time</p>
+                  <p className="text-sm text-muted-foreground">Commission rate used for calculating bill balance</p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="productName">Item Name</Label>
                       <Input
@@ -412,7 +414,17 @@ export default function FoodCourt() {
                         placeholder="Enter MRP manually"
                       />
                     </div>
-                    <div className="md:col-span-3 flex gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="eventMargin">Commission Rate (%)</Label>
+                      <Input
+                        id="eventMargin"
+                        type="number"
+                        value={newProduct.event_margin}
+                        onChange={(e) => setNewProduct({ ...newProduct, event_margin: e.target.value })}
+                        placeholder="20"
+                      />
+                    </div>
+                    <div className="md:col-span-4 flex gap-2">
                       <Button onClick={handleAddProduct} disabled={addProductMutation.isPending}>
                         {addProductMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                         Add Product
