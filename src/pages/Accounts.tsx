@@ -336,9 +336,21 @@ export default function Accounts() {
                   </div>
                   {participantPayment.stallId && (() => {
                     // Total billed from billing transactions
-                    const stallBilledAmount = billingTransactions
-                      .filter((t: any) => t.stall_id === participantPayment.stallId)
-                      .reduce((sum: number, t: any) => sum + (t.total || 0), 0);
+                    const stallTransactions = billingTransactions.filter((t: any) => t.stall_id === participantPayment.stallId);
+                    const stallBilledAmount = stallTransactions.reduce((sum: number, t: any) => sum + (t.total || 0), 0);
+                    
+                    // Calculate Bill Balance using same logic as StallDashboard (per-item commission deduction)
+                    const stallBillBalance = stallTransactions.reduce((txSum: number, tx: any) => {
+                      const items = Array.isArray(tx.items) ? tx.items as Array<{ price?: number; quantity?: number; event_margin?: number }> : [];
+                      const txBalance = items.reduce((sum: number, item) => {
+                        const itemTotal = Number(item.price || 0) * Number(item.quantity || 1);
+                        const commission = Number(item.event_margin || 20);
+                        const itemBalance = itemTotal * (1 - commission / 100);
+                        return sum + itemBalance;
+                      }, 0);
+                      return txSum + txBalance;
+                    }, 0);
+                    
                     // Amount paid TO stall (excluding registration fee - non-refundable)
                     const stallPaidToStall = payments
                       .filter((p: any) => 
@@ -347,7 +359,10 @@ export default function Accounts() {
                         !(p.narration && p.narration.toLowerCase().includes("registration fee"))
                       )
                       .reduce((sum: number, p: any) => sum + (p.amount_paid || 0), 0);
-                    const stallBalance = stallBilledAmount - stallPaidToStall;
+                    
+                    // Remaining balance to be paid
+                    const remainingBalance = stallBillBalance - stallPaidToStall;
+                    
                     // Stall registration fee (non-refundable)
                     const stallFee = payments
                       .filter((p: any) => 
@@ -357,19 +372,24 @@ export default function Accounts() {
                       .reduce((sum: number, p: any) => sum + (p.amount_paid || 0), 0);
                     return (
                       <div className="md:col-span-2 p-4 bg-muted rounded-lg space-y-3">
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-4 gap-4 text-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Billed Amount</p>
                             <p className="text-lg font-semibold text-foreground">₹{stallBilledAmount.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Bill Balance</p>
+                            <p className="text-lg font-semibold text-green-600">₹{stallBillBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                            <p className="text-xs text-muted-foreground">After commission</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Amount Paid</p>
                             <p className="text-lg font-semibold text-success">₹{stallPaidToStall.toLocaleString()}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Bill Balance</p>
-                            <p className={`text-lg font-bold ${stallBalance > 0 ? 'text-warning' : 'text-success'}`}>
-                              ₹{stallBalance.toLocaleString()}
+                            <p className="text-sm text-muted-foreground">Remaining</p>
+                            <p className={`text-lg font-bold ${remainingBalance > 0 ? 'text-warning' : 'text-success'}`}>
+                              ₹{remainingBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </p>
                           </div>
                         </div>
