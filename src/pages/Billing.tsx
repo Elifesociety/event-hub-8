@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Receipt, 
   Plus, 
@@ -15,7 +16,8 @@ import {
   Check,
   ChevronDown,
   X,
-  CheckCircle
+  CheckCircle,
+  Pencil
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
@@ -44,6 +46,15 @@ export default function Billing() {
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Edit stall state
+  const [editingStall, setEditingStall] = useState<Stall | null>(null);
+  const [editForm, setEditForm] = useState({
+    counter_name: "",
+    participant_name: "",
+    mobile: "",
+    registration_fee: ""
+  });
   
   const [registration, setRegistration] = useState({
     type: "stall_counter" as Enums<"registration_type">,
@@ -272,6 +283,78 @@ export default function Billing() {
       toast.error("Failed to verify stall: " + error.message);
     }
   });
+
+  // Update stall mutation
+  const updateStallMutation = useMutation({
+    mutationFn: async (data: { id: string; counter_name: string; participant_name: string; mobile: string | null; registration_fee: number }) => {
+      const { error } = await supabase
+        .from('stalls')
+        .update({
+          counter_name: data.counter_name,
+          participant_name: data.participant_name,
+          mobile: data.mobile,
+          registration_fee: data.registration_fee
+        })
+        .eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all_stalls'] });
+      queryClient.invalidateQueries({ queryKey: ['stalls'] });
+      setEditingStall(null);
+      toast.success("Stall updated!");
+    },
+    onError: (error) => {
+      toast.error("Failed to update stall: " + error.message);
+    }
+  });
+
+  // Delete stall mutation
+  const deleteStallMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Delete related products and payments first
+      await supabase.from('products').delete().eq('stall_id', id);
+      await supabase.from('payments').delete().eq('stall_id', id);
+      await supabase.from('billing_transactions').delete().eq('stall_id', id);
+      const { error } = await supabase.from('stalls').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all_stalls'] });
+      queryClient.invalidateQueries({ queryKey: ['stalls'] });
+      queryClient.invalidateQueries({ queryKey: ['stall_payments'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['billing_transactions'] });
+      toast.success("Stall deleted!");
+    },
+    onError: (error) => {
+      toast.error("Failed to delete stall: " + error.message);
+    }
+  });
+
+  const openEditDialog = (stall: Stall) => {
+    setEditingStall(stall);
+    setEditForm({
+      counter_name: stall.counter_name,
+      participant_name: stall.participant_name,
+      mobile: stall.mobile || "",
+      registration_fee: stall.registration_fee?.toString() || "0"
+    });
+  };
+
+  const handleUpdateStall = () => {
+    if (!editingStall || !editForm.counter_name || !editForm.participant_name) {
+      toast.error("Please fill required fields");
+      return;
+    }
+    updateStallMutation.mutate({
+      id: editingStall.id,
+      counter_name: editForm.counter_name,
+      participant_name: editForm.participant_name,
+      mobile: editForm.mobile || null,
+      registration_fee: parseFloat(editForm.registration_fee) || 0
+    });
+  };
 
   const stallProducts = selectedStalls.length > 0 
     ? products.filter(p => selectedStalls.includes(p.stall_id)) 
@@ -812,28 +895,49 @@ export default function Billing() {
                                 <Badge variant="default" className="ml-2">Paid</Badge>
                               </div>
                             </div>
-                            {!stall.is_verified && (
-                              <Button 
-                                size="sm" 
+                            <div className="flex gap-2 mt-2">
+                              {!stall.is_verified && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => verifyStallMutation.mutate(stall.id)}
+                                  disabled={verifyStallMutation.isPending}
+                                >
+                                  {verifyStallMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                  )}
+                                  Verify
+                                </Button>
+                              )}
+                              {stall.is_verified && (
+                                <Badge variant="secondary" className="flex-1 justify-center py-2">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Verified
+                                </Badge>
+                              )}
+                              <Button
+                                size="sm"
                                 variant="outline"
-                                className="w-full mt-2"
-                                onClick={() => verifyStallMutation.mutate(stall.id)}
-                                disabled={verifyStallMutation.isPending}
+                                onClick={() => openEditDialog(stall)}
                               >
-                                {verifyStallMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                )}
-                                Verify Stall
+                                <Pencil className="h-4 w-4" />
                               </Button>
-                            )}
-                            {stall.is_verified && (
-                              <Badge variant="secondary" className="w-full justify-center mt-2">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Verified
-                              </Badge>
-                            )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                  if (confirm(`Delete stall "${stall.counter_name}"? This will also delete all related products, payments and bills.`)) {
+                                    deleteStallMutation.mutate(stall.id);
+                                  }
+                                }}
+                                disabled={deleteStallMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -963,6 +1067,61 @@ export default function Billing() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Stall Dialog */}
+        <Dialog open={!!editingStall} onOpenChange={(open) => !open && setEditingStall(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Stall</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-counter">Counter Name *</Label>
+                <Input
+                  id="edit-counter"
+                  value={editForm.counter_name}
+                  onChange={(e) => setEditForm({ ...editForm, counter_name: e.target.value })}
+                  placeholder="Enter counter name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-participant">Participant Name *</Label>
+                <Input
+                  id="edit-participant"
+                  value={editForm.participant_name}
+                  onChange={(e) => setEditForm({ ...editForm, participant_name: e.target.value })}
+                  placeholder="Enter participant name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-mobile">Mobile</Label>
+                <Input
+                  id="edit-mobile"
+                  value={editForm.mobile}
+                  onChange={(e) => setEditForm({ ...editForm, mobile: e.target.value })}
+                  placeholder="Enter mobile number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-fee">Registration Fee (₹)</Label>
+                <Input
+                  id="edit-fee"
+                  type="number"
+                  value={editForm.registration_fee}
+                  onChange={(e) => setEditForm({ ...editForm, registration_fee: e.target.value })}
+                  placeholder="Enter registration fee"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleUpdateStall} disabled={updateStallMutation.isPending} className="flex-1">
+                  {updateStallMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+                <Button variant="outline" onClick={() => setEditingStall(null)}>Cancel</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </PageLayout>
   );

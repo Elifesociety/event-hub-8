@@ -171,12 +171,22 @@ export default function FoodCourt() {
     }
   });
 
-  const handleAddStall = () => {
-    if (newStall.counter_name && newStall.participant_name) {
-      addStallMutation.mutate(newStall);
-    } else {
+  const handleAddStall = async () => {
+    if (!newStall.counter_name || !newStall.participant_name) {
       toast.error("Please fill required fields");
+      return;
     }
+    
+    // Check for duplicate mobile number
+    if (newStall.mobile && newStall.mobile.trim()) {
+      const existingStall = stalls.find(s => s.mobile === newStall.mobile.trim());
+      if (existingStall) {
+        toast.error(`Mobile number already registered for stall: ${existingStall.counter_name}`);
+        return;
+      }
+    }
+    
+    addStallMutation.mutate(newStall);
   };
 
   const handleAddProduct = () => {
