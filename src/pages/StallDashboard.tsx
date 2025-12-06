@@ -95,8 +95,8 @@ export default function StallDashboard() {
 
   const totalBilledCount = transactions.length;
   const totalBilledAmount = transactions.reduce((sum, t) => sum + Number(t.total), 0);
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
-  const balanceDue = totalBilledAmount - totalPaid;
+  const totalMarginDeducted = payments.reduce((sum, p) => sum + Number(p.margin_deducted || 0), 0);
+  const newBillBalance = totalBilledAmount - totalMarginDeducted;
 
   // Separate pending and delivered orders
   const pendingOrders = transactions.filter((t) => t.status !== "delivered");
@@ -204,15 +204,15 @@ export default function StallDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
+          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Balance Due</CardTitle>
-              <Wallet className="h-4 w-4 text-orange-600" />
+              <CardTitle className="text-sm font-medium">New Bill Balance</CardTitle>
+              <Wallet className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold flex items-center text-orange-600">
+              <div className="text-2xl font-bold flex items-center text-green-600">
                 <IndianRupee className="h-5 w-5" />
-                {balanceDue.toLocaleString()}
+                {newBillBalance.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">After commission deduction</p>
             </CardContent>
