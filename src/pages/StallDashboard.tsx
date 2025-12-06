@@ -1,19 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStallAuth } from "@/contexts/StallAuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Store, Receipt, Wallet, LogOut, IndianRupee, ShoppingCart } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Store, Receipt, Wallet, LogOut, IndianRupee, ShoppingCart, CheckCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import logo from "@/assets/logo.jpg";
 
 export default function StallDashboard() {
   const { stall, logout, isLoading: authLoading } = useStallAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!authLoading && !stall) {
@@ -21,7 +24,7 @@ export default function StallDashboard() {
     }
   }, [stall, authLoading, navigate]);
 
-  // Fetch billing transactions for this stall
+  // Fetch billing transactions for this stall (only cash orders)
   const { data: transactions = [] } = useQuery({
     queryKey: ["stall-transactions", stall?.id],
     queryFn: async () => {
@@ -53,9 +56,31 @@ export default function StallDashboard() {
     enabled: !!stall?.id,
   });
 
+  // Mutation to update order status
+  const updateOrderStatus = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      const { error } = await supabase
+        .from("billing_transactions")
+        .update({ status })
+        .eq("id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stall-transactions", stall?.id] });
+      toast.success("Order marked as delivered!");
+    },
+    onError: () => {
+      toast.error("Failed to update order status");
+    },
+  });
+
   const handleLogout = () => {
     logout();
     navigate("/stall-login");
+  };
+
+  const handleDeliverOrder = (orderId: string) => {
+    updateOrderStatus.mutate({ orderId, status: "delivered" });
   };
 
   if (authLoading) {
@@ -72,6 +97,63 @@ export default function StallDashboard() {
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
   const marginDeducted = payments.reduce((sum, p) => sum + Number(p.margin_deducted || 0), 0);
   const balanceAmount = totalBilled - totalPaid - marginDeducted;
+
+  // Separate pending and delivered orders
+  const pendingOrders = transactions.filter((t) => t.status !== "delivered");
+  const deliveredOrders = transactions.filter((t) => t.status === "delivered");
+
+  const OrderTable = ({ orders, showDeliverButton = false }: { orders: typeof transactions; showDeliverButton?: boolean }) => (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>S.No</TableHead>
+            <TableHead>Receipt</TableHead>
+            <TableHead>Customer</TableHead>
+            <TableHead>Items</TableHead>
+            <TableHead className="text-right">Total</TableHead>
+            <TableHead>Date</TableHead>
+            {showDeliverButton && <TableHead>Action</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((tx) => (
+            <TableRow key={tx.id}>
+              <TableCell>{tx.serial_number}</TableCell>
+              <TableCell className="font-mono text-xs">{tx.receipt_number}</TableCell>
+              <TableCell>
+                <div>
+                  <p className="font-medium">{tx.customer_name || "-"}</p>
+                  <p className="text-xs text-muted-foreground">{tx.customer_mobile || "-"}</p>
+                </div>
+              </TableCell>
+              <TableCell>
+                {Array.isArray(tx.items) ? tx.items.length : 0} items
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                ₹{Number(tx.total).toLocaleString()}
+              </TableCell>
+              <TableCell className="text-xs">
+                {tx.created_at ? format(new Date(tx.created_at), "dd/MM/yy HH:mm") : "-"}
+              </TableCell>
+              {showDeliverButton && (
+                <TableCell>
+                  <Button
+                    size="sm"
+                    onClick={() => handleDeliverOrder(tx.id)}
+                    disabled={updateOrderStatus.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Deliver
+                  </Button>
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,63 +220,44 @@ export default function StallDashboard() {
           </Card>
         </div>
 
-        {/* Orders Table */}
+        {/* Orders with Tabs */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
               Your Orders
             </CardTitle>
-            <CardDescription>All billing transactions for your stall</CardDescription>
+            <CardDescription>Cash received orders for your stall</CardDescription>
           </CardHeader>
           <CardContent>
-            {transactions.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No orders yet</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>S.No</TableHead>
-                      <TableHead>Receipt</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell>{tx.serial_number}</TableCell>
-                        <TableCell className="font-mono text-xs">{tx.receipt_number}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{tx.customer_name || "-"}</p>
-                            <p className="text-xs text-muted-foreground">{tx.customer_mobile || "-"}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {Array.isArray(tx.items) ? tx.items.length : 0} items
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          ₹{Number(tx.total).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={tx.status === "completed" ? "default" : "secondary"}>
-                            {tx.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {tx.created_at ? format(new Date(tx.created_at), "dd/MM/yy HH:mm") : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <Tabs defaultValue="pending" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="pending" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Pending ({pendingOrders.length})
+                </TabsTrigger>
+                <TabsTrigger value="delivered" className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Delivered ({deliveredOrders.length})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="pending">
+                {pendingOrders.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No pending orders</p>
+                ) : (
+                  <OrderTable orders={pendingOrders} showDeliverButton={true} />
+                )}
+              </TabsContent>
+              
+              <TabsContent value="delivered">
+                {deliveredOrders.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No delivered orders yet</p>
+                ) : (
+                  <OrderTable orders={deliveredOrders} showDeliverButton={false} />
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
