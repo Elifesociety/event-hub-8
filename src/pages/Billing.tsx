@@ -14,7 +14,8 @@ import {
   Loader2,
   Check,
   ChevronDown,
-  X
+  X,
+  CheckCircle
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
@@ -244,6 +245,25 @@ export default function Billing() {
     },
     onError: (error) => {
       toast.error("Failed to record payment: " + error.message);
+    }
+  });
+
+  // Verify stall mutation
+  const verifyStallMutation = useMutation({
+    mutationFn: async (stallId: string) => {
+      const { error } = await supabase
+        .from('stalls')
+        .update({ is_verified: true })
+        .eq('id', stallId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all_stalls'] });
+      queryClient.invalidateQueries({ queryKey: ['stalls'] });
+      toast.success("Stall verified!");
+    },
+    onError: (error) => {
+      toast.error("Failed to verify stall: " + error.message);
     }
   });
 
@@ -741,17 +761,41 @@ export default function Billing() {
                     ) : (
                       <div className="space-y-3">
                         {paidStalls.map((stall) => (
-                          <div key={stall.id} className="p-3 border border-border rounded-lg flex items-center justify-between bg-primary/5">
-                            <div>
-                              <p className="font-medium">{stall.counter_name}</p>
-                              <p className="text-sm text-muted-foreground">{stall.participant_name}</p>
-                              {stall.mobile && <p className="text-xs text-muted-foreground">Mobile: {stall.mobile}</p>}
-                              <p className="text-xs text-muted-foreground">{formatDate(stall.created_at)}</p>
+                          <div key={stall.id} className="p-3 border border-border rounded-lg bg-primary/5">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="font-medium">{stall.counter_name}</p>
+                                <p className="text-sm text-muted-foreground">{stall.participant_name}</p>
+                                {stall.mobile && <p className="text-xs text-muted-foreground">Mobile: {stall.mobile}</p>}
+                                <p className="text-xs text-muted-foreground">{formatDate(stall.created_at)}</p>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-lg text-green-600">₹{stall.registration_fee || 0}</span>
+                                <Badge variant="default" className="ml-2">Paid</Badge>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className="font-bold text-lg text-green-600">₹{stall.registration_fee || 0}</span>
-                              <Badge variant="default" className="ml-2">Paid</Badge>
-                            </div>
+                            {!stall.is_verified && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="w-full mt-2"
+                                onClick={() => verifyStallMutation.mutate(stall.id)}
+                                disabled={verifyStallMutation.isPending}
+                              >
+                                {verifyStallMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                )}
+                                Verify Stall
+                              </Button>
+                            )}
+                            {stall.is_verified && (
+                              <Badge variant="secondary" className="w-full justify-center mt-2">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            )}
                           </div>
                         ))}
                       </div>
