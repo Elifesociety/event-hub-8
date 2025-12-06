@@ -147,7 +147,9 @@ export default function Accounts() {
   const totalStallBookingFees = stallPayments.reduce((sum: number, p: any) => sum + (p.amount_paid || 0), 0);
   const totalCollected = totalBillingCollected + totalRegistrationCollected + totalStallBookingFees;
 
-  const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount_paid || 0), 0);
+  const totalPaid = payments
+    .filter((p: any) => p.payment_type === "other")
+    .reduce((sum: number, p: any) => sum + (p.amount_paid || 0), 0);
   const cashBalance = totalCollected - totalPaid;
 
   const participantPaymentsTotal = payments
