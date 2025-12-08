@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,10 @@ const navItems = [{
   label: "My Profile",
   href: "/stall-login",
   icon: User
+}, {
+  label: "Admin",
+  href: "/admin-login",
+  icon: Shield
 }];
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

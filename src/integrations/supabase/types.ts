@@ -14,6 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_permissions: {
+        Row: {
+          admin_id: string
+          can_create: boolean | null
+          can_delete: boolean | null
+          can_read: boolean | null
+          can_update: boolean | null
+          created_at: string | null
+          id: string
+          module: Database["public"]["Enums"]["app_module"]
+        }
+        Insert: {
+          admin_id: string
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_read?: boolean | null
+          can_update?: boolean | null
+          created_at?: string | null
+          id?: string
+          module: Database["public"]["Enums"]["app_module"]
+        }
+        Update: {
+          admin_id?: string
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_read?: boolean | null
+          can_update?: boolean | null
+          created_at?: string | null
+          id?: string
+          module?: Database["public"]["Enums"]["app_module"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_permissions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admins: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          password_hash: string
+          role: Database["public"]["Enums"]["admin_role"]
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          password_hash: string
+          role?: Database["public"]["Enums"]["admin_role"]
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          password_hash?: string
+          role?: Database["public"]["Enums"]["admin_role"]
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       billing_transactions: {
         Row: {
           created_at: string | null
@@ -298,6 +369,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      admin_role: "super_admin" | "admin"
+      app_module:
+        | "billing"
+        | "team"
+        | "programs"
+        | "accounts"
+        | "food_court"
+        | "photos"
+        | "registrations"
       payment_type: "participant" | "other"
       registration_type:
         | "stall_counter"
@@ -431,6 +511,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      admin_role: ["super_admin", "admin"],
+      app_module: [
+        "billing",
+        "team",
+        "programs",
+        "accounts",
+        "food_court",
+        "photos",
+        "registrations",
+      ],
       payment_type: ["participant", "other"],
       registration_type: [
         "stall_counter",
