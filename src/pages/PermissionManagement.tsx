@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Save, Loader2, Shield } from 'lucide-react';
 
-type AppModule = 'billing' | 'team' | 'programs' | 'accounts' | 'food_court' | 'photos' | 'registrations';
+type AppModule = 'billing' | 'team' | 'programs' | 'accounts' | 'food_court' | 'photos' | 'registrations' | 'survey' | 'stall_enquiry';
 
 const MODULES: { value: AppModule; label: string }[] = [
   { value: 'billing', label: 'Billing' },
@@ -23,6 +23,8 @@ const MODULES: { value: AppModule; label: string }[] = [
   { value: 'food_court', label: 'Food Court' },
   { value: 'photos', label: 'Photo Gallery' },
   { value: 'registrations', label: 'Registrations' },
+  { value: 'survey', label: 'Survey Management' },
+  { value: 'stall_enquiry', label: 'Stall Enquiry' },
 ];
 
 interface Admin {

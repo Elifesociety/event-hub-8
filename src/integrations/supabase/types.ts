@@ -515,6 +515,8 @@ export type Database = {
         | "food_court"
         | "photos"
         | "registrations"
+        | "survey"
+        | "stall_enquiry"
       payment_type: "participant" | "other"
       registration_type:
         | "stall_counter"
@@ -657,6 +659,8 @@ export const Constants = {
         "food_court",
         "photos",
         "registrations",
+        "survey",
+        "stall_enquiry",
       ],
       payment_type: ["participant", "other"],
       registration_type: [
