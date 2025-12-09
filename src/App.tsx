@@ -8,6 +8,8 @@ import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Programs from "./pages/Programs";
+import Survey from "./pages/Survey";
+import SurveyViewPage from "./pages/SurveyViewPage";
 import Team from "./pages/Team";
 import FoodCourt from "./pages/FoodCourt";
 import Billing from "./pages/Billing";
@@ -36,6 +38,8 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/programs" element={<Programs />} />
               <Route path="/photo-gallery" element={<PhotoGallery />} />
+              <Route path="/survey" element={<Survey />} />
+              <Route path="/survey-view" element={<SurveyViewPage />} />
               <Route path="/stall-login" element={<StallLogin />} />
               <Route path="/admin-login" element={<AdminLogin />} />
               
