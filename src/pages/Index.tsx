@@ -1,6 +1,6 @@
 import { PageLayout } from "@/components/layout/PageLayout";
 import { ModuleCard } from "@/components/dashboard/ModuleCard";
-import { CalendarDays, Camera } from "lucide-react";
+import { CalendarDays, Camera, ClipboardList, Store } from "lucide-react";
 
 const modules = [
   {
@@ -16,6 +16,20 @@ const modules = [
     icon: Camera,
     href: "/photo-gallery",
     color: "primary" as const
+  },
+  {
+    title: "Survey",
+    description: "Share your feedback and help us improve future events.",
+    icon: ClipboardList,
+    href: "/survey",
+    color: "accent" as const
+  },
+  {
+    title: "Stall Enquiry",
+    description: "Inquire about stall availability and registration details.",
+    icon: Store,
+    href: "/stall-enquiry",
+    color: "warning" as const
   }
 ];
 
