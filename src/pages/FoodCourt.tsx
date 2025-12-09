@@ -110,6 +110,19 @@ export default function FoodCourt() {
     }
   });
 
+  // Fetch enquiry fields for labels
+  const { data: enquiryFields = [] } = useQuery({
+    queryKey: ['stall-enquiry-fields'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stall_enquiry_fields')
+        .select('id, field_label')
+        .order('display_order');
+      if (error) throw error;
+      return data as { id: string; field_label: string }[];
+    }
+  });
+
   // Add stall mutation
   const addStallMutation = useMutation({
     mutationFn: async (stall: typeof newStall) => {
@@ -567,13 +580,17 @@ export default function FoodCourt() {
                     {Object.keys(viewingEnquiry.responses).length > 0 && (
                       <div className="border-t pt-4">
                         <p className="text-muted-foreground text-xs mb-2">Additional Responses</p>
-                        <div className="space-y-2">
-                          {Object.entries(viewingEnquiry.responses).map(([key, value]) => (
-                            <div key={key} className="flex justify-between">
-                              <span className="text-muted-foreground">{key}:</span>
-                              <span className="font-medium">{value}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {Object.entries(viewingEnquiry.responses).map(([fieldId, value]) => {
+                            const field = enquiryFields.find(f => f.id === fieldId);
+                            const label = field?.field_label || fieldId;
+                            return (
+                              <div key={fieldId} className="border-b pb-2">
+                                <p className="text-muted-foreground text-sm">{label}</p>
+                                <p className="font-medium">{value}</p>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
