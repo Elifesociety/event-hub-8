@@ -18,6 +18,7 @@ import {
   Eye
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -545,56 +546,58 @@ export default function FoodCourt() {
           <TabsContent value="enquiries">
             {/* View Details Dialog */}
             <Dialog open={!!viewingEnquiry} onOpenChange={(open) => !open && setViewingEnquiry(null)}>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-lg max-h-[85vh]">
                 <DialogHeader>
                   <DialogTitle>Verified Enquiry Details</DialogTitle>
                 </DialogHeader>
                 {viewingEnquiry && (
-                  <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Name</p>
-                        <p className="font-medium">{viewingEnquiry.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Mobile</p>
-                        <p className="font-medium">{viewingEnquiry.mobile}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Panchayath</p>
-                        <p className="font-medium">{viewingEnquiry.panchayaths?.name || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Ward</p>
-                        <p className="font-medium">
-                          {viewingEnquiry.wards 
-                            ? `${viewingEnquiry.wards.ward_number}${viewingEnquiry.wards.ward_name ? ` - ${viewingEnquiry.wards.ward_name}` : ''}`
-                            : '-'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Date</p>
-                        <p className="font-medium">{new Date(viewingEnquiry.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    {Object.keys(viewingEnquiry.responses).length > 0 && (
-                      <div className="border-t pt-4">
-                        <p className="text-muted-foreground text-xs mb-2">Additional Responses</p>
-                        <div className="space-y-3">
-                          {Object.entries(viewingEnquiry.responses).map(([fieldId, value]) => {
-                            const field = enquiryFields.find(f => f.id === fieldId);
-                            const label = field?.field_label || fieldId;
-                            return (
-                              <div key={fieldId} className="border-b pb-2">
-                                <p className="text-muted-foreground text-sm">{label}</p>
-                                <p className="font-medium">{value}</p>
-                              </div>
-                            );
-                          })}
+                  <ScrollArea className="max-h-[calc(85vh-100px)] pr-4">
+                    <div className="space-y-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-muted-foreground text-xs">Name</p>
+                          <p className="font-medium">{viewingEnquiry.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Mobile</p>
+                          <p className="font-medium">{viewingEnquiry.mobile}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Panchayath</p>
+                          <p className="font-medium">{viewingEnquiry.panchayaths?.name || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Ward</p>
+                          <p className="font-medium">
+                            {viewingEnquiry.wards 
+                              ? `${viewingEnquiry.wards.ward_number}${viewingEnquiry.wards.ward_name ? ` - ${viewingEnquiry.wards.ward_name}` : ''}`
+                              : '-'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Date</p>
+                          <p className="font-medium">{new Date(viewingEnquiry.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
-                    )}
-                  </div>
+                      {Object.keys(viewingEnquiry.responses).length > 0 && (
+                        <div className="border-t pt-4">
+                          <p className="text-muted-foreground text-xs mb-2">Additional Responses</p>
+                          <div className="space-y-3">
+                            {Object.entries(viewingEnquiry.responses).map(([fieldId, value]) => {
+                              const field = enquiryFields.find(f => f.id === fieldId);
+                              const label = field?.field_label || fieldId;
+                              return (
+                                <div key={fieldId} className="border-b pb-2">
+                                  <p className="text-muted-foreground text-sm">{label}</p>
+                                  <p className="font-medium">{value}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
                 )}
               </DialogContent>
             </Dialog>
