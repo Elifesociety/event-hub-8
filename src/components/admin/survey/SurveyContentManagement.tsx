@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Video, Image, FileText, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Video, Image, FileText, GripVertical, Upload, Loader2 } from 'lucide-react';
 
 interface SurveyContent {
   id: string;
@@ -29,6 +29,9 @@ export function SurveyContentManagement() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ContentType>('video');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     title: '',
     content_url: '',
@@ -65,6 +68,7 @@ export function SurveyContentManagement() {
       queryClient.invalidateQueries({ queryKey: ['survey-content', activeTab] });
       setFormData({ title: '', content_url: '', content_text: '' });
       setIsAddOpen(false);
+      setUploadMode('url');
       toast({ title: 'Content added successfully' });
     },
     onError: (error: Error) => {
@@ -106,13 +110,54 @@ export function SurveyContentManagement() {
     },
   });
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type for posters
+    if (activeTab === 'poster' && !file.type.startsWith('image/')) {
+      toast({ title: 'Please select an image file', variant: 'destructive' });
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File size must be less than 10MB', variant: 'destructive' });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${activeTab}s/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('survey-content')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('survey-content')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, content_url: publicUrl }));
+      toast({ title: 'File uploaded successfully' });
+    } catch (error: any) {
+      toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleAdd = () => {
     if (!formData.title.trim()) {
       toast({ title: 'Please enter a title', variant: 'destructive' });
       return;
     }
     if (activeTab !== 'writeup' && !formData.content_url.trim()) {
-      toast({ title: 'Please enter a URL', variant: 'destructive' });
+      toast({ title: 'Please enter a URL or upload a file', variant: 'destructive' });
       return;
     }
     if (activeTab === 'writeup' && !formData.content_text.trim()) {
@@ -137,6 +182,12 @@ export function SurveyContentManagement() {
   };
 
   const ContentIcon = getIcon(activeTab);
+
+  const resetAndOpenDialog = () => {
+    setFormData({ title: '', content_url: '', content_text: '' });
+    setUploadMode('url');
+    setIsAddOpen(true);
+  };
 
   return (
     <Card>
@@ -167,7 +218,7 @@ export function SurveyContentManagement() {
 
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button onClick={resetAndOpenDialog}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </Button>
@@ -187,17 +238,98 @@ export function SurveyContentManagement() {
                     />
                   </div>
                   {activeTab !== 'writeup' && (
-                    <div>
-                      <Label htmlFor="url">
-                        {activeTab === 'video' ? 'Video URL (YouTube, etc.)' : 'Image URL'}
-                      </Label>
-                      <Input
-                        id="url"
-                        value={formData.content_url}
-                        onChange={(e) => setFormData({ ...formData, content_url: e.target.value })}
-                        placeholder={activeTab === 'video' ? 'https://youtube.com/...' : 'https://...'}
-                      />
-                    </div>
+                    <>
+                      {activeTab === 'poster' && (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={uploadMode === 'url' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setUploadMode('url')}
+                          >
+                            URL
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={uploadMode === 'file' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setUploadMode('file')}
+                          >
+                            <Upload className="h-4 w-4 mr-1" />
+                            Upload
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {(uploadMode === 'url' || activeTab === 'video') && (
+                        <div>
+                          <Label htmlFor="url">
+                            {activeTab === 'video' ? 'Video URL (YouTube, etc.)' : 'Image URL'}
+                          </Label>
+                          <Input
+                            id="url"
+                            value={formData.content_url}
+                            onChange={(e) => setFormData({ ...formData, content_url: e.target.value })}
+                            placeholder={activeTab === 'video' ? 'https://youtube.com/...' : 'https://...'}
+                          />
+                        </div>
+                      )}
+                      
+                      {uploadMode === 'file' && activeTab === 'poster' && (
+                        <div className="space-y-2">
+                          <Label>Upload Image</Label>
+                          <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleFileUpload}
+                              className="hidden"
+                            />
+                            {formData.content_url ? (
+                              <div className="space-y-2">
+                                <img 
+                                  src={formData.content_url} 
+                                  alt="Preview" 
+                                  className="max-h-32 mx-auto rounded"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  disabled={isUploading}
+                                >
+                                  Change Image
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                              >
+                                {isUploading ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Select Image
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Max file size: 10MB
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                   {activeTab === 'writeup' && (
                     <div>
@@ -211,7 +343,11 @@ export function SurveyContentManagement() {
                       />
                     </div>
                   )}
-                  <Button onClick={handleAdd} disabled={addMutation.isPending} className="w-full">
+                  <Button 
+                    onClick={handleAdd} 
+                    disabled={addMutation.isPending || isUploading} 
+                    className="w-full"
+                  >
                     {addMutation.isPending ? 'Adding...' : 'Add Content'}
                   </Button>
                 </div>

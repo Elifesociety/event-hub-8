@@ -57,6 +57,7 @@ export default function StallEnquiryAdmin() {
   const [isRequired, setIsRequired] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [viewingEnquiry, setViewingEnquiry] = useState<Enquiry | null>(null);
+  const [selectedPanchayath, setSelectedPanchayath] = useState<string>('all');
 
   useEffect(() => {
     if (!isLoading && !admin) {
@@ -77,6 +78,19 @@ export default function StallEnquiryAdmin() {
     }
   });
 
+  // Fetch panchayaths for filter
+  const { data: panchayaths = [] } = useQuery({
+    queryKey: ['panchayaths-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('panchayaths')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    }
+  });
+
   // Fetch enquiries
   const { data: enquiries = [], isLoading: enquiriesLoading } = useQuery({
     queryKey: ['stall-enquiries'],
@@ -93,6 +107,11 @@ export default function StallEnquiryAdmin() {
       return data as Enquiry[];
     }
   });
+
+  // Filter enquiries by panchayath
+  const filteredEnquiries = selectedPanchayath === 'all' 
+    ? enquiries 
+    : enquiries.filter(e => e.panchayath_id === selectedPanchayath);
 
   const addFieldMutation = useMutation({
     mutationFn: async () => {
@@ -518,6 +537,27 @@ export default function StallEnquiryAdmin() {
                   </DialogContent>
                 </Dialog>
 
+                {/* Panchayath Filter */}
+                <div className="mb-4 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Filter by Panchayath:</Label>
+                    <Select value={selectedPanchayath} onValueChange={setSelectedPanchayath}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="All Panchayaths" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Panchayaths</SelectItem>
+                        {panchayaths.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    Showing {filteredEnquiries.length} of {enquiries.length} enquiries
+                  </span>
+                </div>
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -535,14 +575,14 @@ export default function StallEnquiryAdmin() {
                       <TableRow>
                         <TableCell colSpan={7} className="text-center">Loading...</TableCell>
                       </TableRow>
-                    ) : enquiries.length === 0 ? (
+                    ) : filteredEnquiries.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-muted-foreground">
-                          No enquiries yet
+                          {selectedPanchayath !== 'all' ? 'No enquiries for selected panchayath' : 'No enquiries yet'}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      enquiries.map((enquiry) => (
+                      filteredEnquiries.map((enquiry) => (
                         <TableRow key={enquiry.id}>
                           <TableCell className="font-medium">{enquiry.name}</TableCell>
                           <TableCell>{enquiry.mobile}</TableCell>
