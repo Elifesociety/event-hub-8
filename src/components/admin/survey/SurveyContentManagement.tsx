@@ -200,25 +200,25 @@ export function SurveyContentManagement() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ContentType)}>
-          <div className="flex items-center justify-between mb-6">
-            <TabsList>
-              <TabsTrigger value="video" className="flex items-center gap-2">
-                <Video className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="video" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <Video className="h-3 w-3 sm:h-4 sm:w-4" />
                 Videos
               </TabsTrigger>
-              <TabsTrigger value="poster" className="flex items-center gap-2">
-                <Image className="h-4 w-4" />
+              <TabsTrigger value="poster" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <Image className="h-3 w-3 sm:h-4 sm:w-4" />
                 Posters
               </TabsTrigger>
-              <TabsTrigger value="writeup" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
+              <TabsTrigger value="writeup" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
                 Writeups
               </TabsTrigger>
             </TabsList>
 
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
-                <Button onClick={resetAndOpenDialog}>
+                <Button onClick={resetAndOpenDialog} size="sm" className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </Button>
@@ -363,25 +363,27 @@ export function SurveyContentManagement() {
             ) : contents && contents.length > 0 ? (
               <div className="space-y-4">
                 {contents.map((content) => (
-                  <Card key={content.id} className="p-4">
-                    <div className="flex items-center gap-4">
-                      <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
-                      <div className="flex-1">
-                        <h4 className="font-medium">{content.title}</h4>
-                        {content.content_url && (
-                          <p className="text-sm text-muted-foreground truncate max-w-md">
-                            {content.content_url}
-                          </p>
-                        )}
-                        {content.content_text && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {content.content_text}
-                          </p>
-                        )}
+                  <Card key={content.id} className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm sm:text-base">{content.title}</h4>
+                          {content.content_url && (
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                              {content.content_url}
+                            </p>
+                          )}
+                          {content.content_text && (
+                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                              {content.content_text}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pl-8 sm:pl-0">
                         <div className="flex items-center gap-2">
-                          <Label htmlFor={`active-${content.id}`} className="text-sm">Active</Label>
+                          <Label htmlFor={`active-${content.id}`} className="text-xs sm:text-sm">Active</Label>
                           <Switch
                             id={`active-${content.id}`}
                             checked={content.is_active}
