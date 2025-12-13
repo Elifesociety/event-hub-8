@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Utensils, Loader2, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, Utensils, Loader2, ArrowLeft, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 
@@ -233,6 +234,45 @@ export default function FoodCouponAdmin() {
   const totalQuantity = bookings.reduce((sum, b) => sum + b.quantity, 0);
   const totalAmount = bookings.reduce((sum, b) => sum + Number(b.total_amount), 0);
 
+  // Group bookings by mobile number
+  const groupedBookings = useMemo(() => {
+    const groups: Record<string, { name: string; mobile: string; panchayath: string; bookings: FoodCouponBooking[]; totalQty: number; totalAmt: number }> = {};
+    bookings.forEach((booking) => {
+      if (!groups[booking.mobile]) {
+        groups[booking.mobile] = {
+          name: booking.name,
+          mobile: booking.mobile,
+          panchayath: booking.panchayaths?.name || '-',
+          bookings: [],
+          totalQty: 0,
+          totalAmt: 0,
+        };
+      }
+      groups[booking.mobile].bookings.push(booking);
+      groups[booking.mobile].totalQty += booking.quantity;
+      groups[booking.mobile].totalAmt += Number(booking.total_amount);
+    });
+    return Object.values(groups).sort((a, b) => {
+      const aLatest = Math.max(...a.bookings.map(b => new Date(b.created_at).getTime()));
+      const bLatest = Math.max(...b.bookings.map(b => new Date(b.created_at).getTime()));
+      return bLatest - aLatest;
+    });
+  }, [bookings]);
+
+  const [expandedMobiles, setExpandedMobiles] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (mobile: string) => {
+    setExpandedMobiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(mobile)) {
+        next.delete(mobile);
+      } else {
+        next.add(mobile);
+      }
+      return next;
+    });
+  };
+
   return (
     <PageLayout>
       <section className="container py-6">
@@ -260,7 +300,16 @@ export default function FoodCouponAdmin() {
           {/* Bookings Tab */}
           <TabsContent value="bookings">
             {/* Summary Cards */}
-            <div className="grid sm:grid-cols-3 gap-4 mb-6">
+            <div className="grid sm:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                    {groupedBookings.length}
+                  </div>
+                  <p className="text-muted-foreground text-sm">Unique Customers</p>
+                </CardContent>
+              </Card>
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-2xl font-bold">{totalBookings}</div>
@@ -394,51 +443,76 @@ export default function FoodCouponAdmin() {
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                ) : bookings.length === 0 ? (
+                ) : groupedBookings.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground">No bookings found</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Mobile</TableHead>
-                          <TableHead>Panchayath</TableHead>
-                          <TableHead>Food</TableHead>
-                          <TableHead>Qty</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bookings.map((booking) => (
-                          <TableRow key={booking.id}>
-                            <TableCell>{format(new Date(booking.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
-                            <TableCell className="font-medium">{booking.name}</TableCell>
-                            <TableCell>{booking.mobile}</TableCell>
-                            <TableCell>{booking.panchayaths?.name}</TableCell>
-                            <TableCell>{booking.food_options?.name}</TableCell>
-                            <TableCell>{booking.quantity}</TableCell>
-                            <TableCell className="font-semibold">₹{booking.total_amount}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => openEditBooking(booking)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => deleteBookingMutation.mutate(booking.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                  <div className="space-y-2">
+                    {groupedBookings.map((group) => (
+                      <Collapsible
+                        key={group.mobile}
+                        open={expandedMobiles.has(group.mobile)}
+                        onOpenChange={() => toggleExpanded(group.mobile)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors">
+                            <div className="flex items-center gap-4">
+                              {expandedMobiles.has(group.mobile) ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                              <div>
+                                <p className="font-semibold">{group.name}</p>
+                                <p className="text-sm text-muted-foreground">{group.mobile} • {group.panchayath}</p>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                            </div>
+                            <div className="flex items-center gap-6 text-sm">
+                              <span className="text-muted-foreground">
+                                {group.bookings.length} booking{group.bookings.length > 1 ? 's' : ''}
+                              </span>
+                              <span>Qty: <strong>{group.totalQty}</strong></span>
+                              <span className="font-semibold text-primary">₹{group.totalAmt}</span>
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="ml-8 mt-1 border-l-2 border-muted pl-4 space-y-2">
+                            {group.bookings.map((booking) => (
+                              <div
+                                key={booking.id}
+                                className="flex items-center justify-between p-3 bg-background rounded-md border"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="text-xs text-muted-foreground">
+                                    {format(new Date(booking.created_at), "dd/MM/yyyy HH:mm")}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">{booking.food_options?.name}</span>
+                                    <span className="text-muted-foreground ml-2">× {booking.quantity}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-semibold">₹{booking.total_amount}</span>
+                                  <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditBooking(booking)}>
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => deleteBookingMutation.mutate(booking.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
                   </div>
                 )}
               </CardContent>
