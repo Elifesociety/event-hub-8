@@ -36,6 +36,8 @@ interface BillItem {
   name: string;
   quantity: number;
   price: number;
+  originalPrice: number;
+  discount: number;
   event_margin: number;
 }
 
@@ -384,14 +386,37 @@ export default function Billing() {
           : item
       ));
     } else {
+      const sellingPrice = product.selling_price || 0;
       setBillItems([...billItems, {
         id: product.id,
         name: product.item_name,
         quantity: 1,
-        price: product.selling_price || 0,
+        price: sellingPrice,
+        originalPrice: sellingPrice,
+        discount: 0,
         event_margin: product.event_margin || 20
       }]);
     }
+  };
+
+  const updateItemPrice = (id: string, newPrice: number) => {
+    setBillItems(billItems.map(item => {
+      if (item.id === id) {
+        const discount = item.originalPrice - newPrice;
+        return { ...item, price: Math.max(0, newPrice), discount: Math.max(0, discount) };
+      }
+      return item;
+    }));
+  };
+
+  const updateItemDiscount = (id: string, discount: number) => {
+    setBillItems(billItems.map(item => {
+      if (item.id === id) {
+        const newPrice = item.originalPrice - discount;
+        return { ...item, discount: Math.max(0, discount), price: Math.max(0, newPrice) };
+      }
+      return item;
+    }));
   };
 
   const removeItem = (id: string) => {
@@ -601,45 +626,78 @@ export default function Billing() {
                   {billItems.length > 0 && (
                     <div className="space-y-2">
                       <Label>Bill Items</Label>
-                      <div className="border border-border rounded-lg divide-y divide-border">
-                        {billItems.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between p-3">
-                            <div>
-                              <p className="font-medium text-foreground">{item.name}</p>
-                              <p className="text-sm text-muted-foreground">₹{item.price} each</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                              >
-                                -
-                              </Button>
-                              <span className="w-8 text-center font-medium">{item.quantity}</span>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              >
-                                +
-                              </Button>
-                              <span className="w-16 text-right font-semibold">
+                      <div className="border border-border rounded-lg overflow-hidden">
+                        {/* Header */}
+                        <div className="grid grid-cols-12 gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
+                          <div className="col-span-3">Item</div>
+                          <div className="col-span-2 text-center">MRP</div>
+                          <div className="col-span-2 text-center">Discount</div>
+                          <div className="col-span-2 text-center">Qty</div>
+                          <div className="col-span-2 text-right">Total</div>
+                          <div className="col-span-1"></div>
+                        </div>
+                        {/* Items */}
+                        <div className="divide-y divide-border">
+                          {billItems.map((item) => (
+                            <div key={item.id} className="grid grid-cols-12 gap-2 p-2 items-center">
+                              <div className="col-span-3">
+                                <p className="font-medium text-foreground text-sm truncate">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">Orig: ₹{item.originalPrice}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <Input
+                                  type="number"
+                                  value={item.price}
+                                  onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
+                                  className="h-8 text-center text-sm"
+                                  min={0}
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <Input
+                                  type="number"
+                                  value={item.discount}
+                                  onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
+                                  className="h-8 text-center text-sm"
+                                  min={0}
+                                  max={item.originalPrice}
+                                />
+                              </div>
+                              <div className="col-span-2 flex items-center justify-center gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              <div className="col-span-2 text-right font-semibold text-sm">
                                 ₹{item.price * item.quantity}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => removeItem(item.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              </div>
+                              <div className="col-span-1 flex justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => removeItem(item.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
 
                       {/* Customer Info (Optional) */}
