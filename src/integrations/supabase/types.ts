@@ -495,6 +495,7 @@ export type Database = {
           id: string
           is_verified: boolean | null
           mobile: string | null
+          panchayath_id: string | null
           participant_name: string
           registration_fee: number | null
           updated_at: string | null
@@ -506,6 +507,7 @@ export type Database = {
           id?: string
           is_verified?: boolean | null
           mobile?: string | null
+          panchayath_id?: string | null
           participant_name: string
           registration_fee?: number | null
           updated_at?: string | null
@@ -517,11 +519,20 @@ export type Database = {
           id?: string
           is_verified?: boolean | null
           mobile?: string | null
+          panchayath_id?: string | null
           participant_name?: string
           registration_fee?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stalls_panchayath_id_fkey"
+            columns: ["panchayath_id"]
+            isOneToOne: false
+            referencedRelation: "panchayaths"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       survey_content: {
         Row: {
