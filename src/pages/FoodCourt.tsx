@@ -638,7 +638,22 @@ export default function FoodCourt() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     value={stallSearchQuery}
-                    onChange={(e) => setStallSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      const query = e.target.value;
+                      setStallSearchQuery(query);
+                      
+                      // Auto-select stall if exact counter number match found
+                      if (query.trim()) {
+                        const exactMatch = stalls.find(s => 
+                          s.is_verified && 
+                          s.counter_number?.toLowerCase() === query.toLowerCase().trim() &&
+                          (!productPanchayathFilter || s.panchayath_id === productPanchayathFilter)
+                        );
+                        if (exactMatch) {
+                          setSelectedStall(exactMatch.id);
+                        }
+                      }
+                    }}
                     placeholder="Search by counter number..."
                     className="pl-9 h-10 w-48"
                   />
