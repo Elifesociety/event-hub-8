@@ -46,6 +46,7 @@ export default function Billing() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
+  const [counterNumberInput, setCounterNumberInput] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Edit stall state
@@ -183,6 +184,7 @@ export default function Billing() {
       setSelectedStalls([]);
       setCustomerName("");
       setCustomerMobile("");
+      setCounterNumberInput("");
       toast.success("Bill generated successfully!");
     },
     onError: (error) => {
@@ -497,6 +499,32 @@ export default function Billing() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
+                    <Label>Enter Counter Number(s)</Label>
+                    <Input
+                      value={counterNumberInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCounterNumberInput(value);
+                        
+                        // Parse comma-separated or space-separated counter numbers
+                        const numbers = value.split(/[,\s]+/).map(n => n.trim()).filter(n => n);
+                        
+                        // Find matching stalls and add them
+                        numbers.forEach(num => {
+                          const matchingStall = stalls.find(s => 
+                            s.counter_number?.toLowerCase() === num.toLowerCase()
+                          );
+                          if (matchingStall && !selectedStalls.includes(matchingStall.id)) {
+                            setSelectedStalls(prev => [...prev, matchingStall.id]);
+                          }
+                        });
+                      }}
+                      placeholder="Enter counter numbers (e.g., 1, 2, 3)"
+                      className="h-10"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label>Select Counters</Label>
                     <div className="relative" ref={dropdownRef}>
                       <button
@@ -536,7 +564,9 @@ export default function Billing() {
                                 <div className={`h-4 w-4 border rounded flex items-center justify-center ${selectedStalls.includes(stall.id) ? 'bg-primary border-primary' : 'border-input'}`}>
                                   {selectedStalls.includes(stall.id) && <Check className="h-3 w-3 text-primary-foreground" />}
                                 </div>
-                                <span className="text-foreground">{stall.counter_name}</span>
+                                <span className="text-foreground">
+                                  {stall.counter_number ? `#${stall.counter_number} - ` : ''}{stall.counter_name}
+                                </span>
                               </div>
                             ))
                           )}
