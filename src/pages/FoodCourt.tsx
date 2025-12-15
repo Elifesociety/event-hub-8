@@ -26,7 +26,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Stall = Tables<"stalls">;
+type Stall = Tables<"stalls"> & { panchayaths?: { name: string } | null };
 type Product = Tables<"products">;
 
 interface Enquiry {
@@ -55,8 +55,12 @@ export default function FoodCourt() {
     counter_name: "",
     participant_name: "",
     mobile: "",
-    registration_fee: ""
+    registration_fee: "",
+    panchayath_id: ""
   });
+
+  const [stallPanchayathFilter, setStallPanchayathFilter] = useState<string>("");
+  const [productPanchayathFilter, setProductPanchayathFilter] = useState<string>("");
 
   const [newProduct, setNewProduct] = useState({
     item_name: "",
@@ -74,7 +78,7 @@ export default function FoodCourt() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stalls')
-        .select('*')
+        .select('*, panchayaths(name)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as Stall[];
@@ -143,6 +147,19 @@ export default function FoodCourt() {
     ? verifiedEnquiries.filter(e => e.panchayath_id === enquiryPanchayathFilter)
     : verifiedEnquiries;
 
+  // Filter stalls by panchayath
+  const filteredStalls = stallPanchayathFilter
+    ? stalls.filter(s => s.panchayath_id === stallPanchayathFilter)
+    : stalls;
+
+  // Filter products by panchayath (through stall)
+  const stallIdsForPanchayath = productPanchayathFilter
+    ? stalls.filter(s => s.panchayath_id === productPanchayathFilter).map(s => s.id)
+    : null;
+  const filteredProducts = stallIdsForPanchayath
+    ? products.filter(p => stallIdsForPanchayath.includes(p.stall_id))
+    : products;
+
   // Add stall mutation
   const addStallMutation = useMutation({
     mutationFn: async (stall: typeof newStall) => {
@@ -153,6 +170,7 @@ export default function FoodCourt() {
           participant_name: stall.participant_name,
           mobile: stall.mobile || null,
           registration_fee: stall.registration_fee ? parseFloat(stall.registration_fee) : 0,
+          panchayath_id: stall.panchayath_id || null,
           is_verified: false
         })
         .select()
@@ -162,7 +180,7 @@ export default function FoodCourt() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stalls'] });
-      setNewStall({ counter_name: "", participant_name: "", mobile: "", registration_fee: "" });
+      setNewStall({ counter_name: "", participant_name: "", mobile: "", registration_fee: "", panchayath_id: "" });
       setShowStallForm(false);
       toast.success("Stall registered successfully!");
     },
@@ -312,7 +330,17 @@ export default function FoodCourt() {
           </TabsList>
 
           <TabsContent value="stalls">
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between mb-4">
+              <select
+                value={stallPanchayathFilter}
+                onChange={(e) => setStallPanchayathFilter(e.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">All Panchayaths</option>
+                {panchayaths.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
               <Button onClick={() => setShowStallForm(!showStallForm)} variant="accent">
                 <Plus className="h-4 w-4 mr-2" />
                 Register Stall
@@ -343,6 +371,20 @@ export default function FoodCourt() {
                         onChange={(e) => setNewStall({ ...newStall, participant_name: e.target.value })}
                         placeholder="Enter participant name"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="panchayath">Panchayath</Label>
+                      <select
+                        id="panchayath"
+                        value={newStall.panchayath_id}
+                        onChange={(e) => setNewStall({ ...newStall, panchayath_id: e.target.value })}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">Select Panchayath</option>
+                        {panchayaths.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="stallPhone">Mobile</Label>
@@ -376,7 +418,7 @@ export default function FoodCourt() {
             )}
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {stalls.map((stall) => (
+              {filteredStalls.map((stall) => (
                 <Card key={stall.id} className="animate-fade-in">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
@@ -398,6 +440,7 @@ export default function FoodCourt() {
                       </Badge>
                     </div>
                     <div className="mt-4 text-sm text-muted-foreground">
+                      {stall.panchayaths?.name && <p>Panchayath: {stall.panchayaths.name}</p>}
                       {stall.mobile && <p>Phone: {stall.mobile}</p>}
                       {stall.email && <p>Email: {stall.email}</p>}
                       {stall.registration_fee && <p>Fee: ₹{stall.registration_fee}</p>}
@@ -429,25 +472,37 @@ export default function FoodCourt() {
           </TabsContent>
 
           <TabsContent value="products">
-            <div className="flex justify-end mb-4 gap-4">
+            <div className="flex justify-between mb-4 gap-4">
               <select
-                value={selectedStall}
-                onChange={(e) => setSelectedStall(e.target.value)}
+                value={productPanchayathFilter}
+                onChange={(e) => setProductPanchayathFilter(e.target.value)}
                 className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">Select Stall</option>
-                {stalls.filter(s => s.is_verified).map(s => (
-                  <option key={s.id} value={s.id}>{s.counter_name}</option>
+                <option value="">All Panchayaths</option>
+                {panchayaths.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <Button 
-                onClick={() => setShowProductForm(!showProductForm)} 
-                variant="accent"
-                disabled={!selectedStall}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
+              <div className="flex gap-4">
+                <select
+                  value={selectedStall}
+                  onChange={(e) => setSelectedStall(e.target.value)}
+                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Select Stall</option>
+                  {stalls.filter(s => s.is_verified).map(s => (
+                    <option key={s.id} value={s.id}>{s.counter_name}</option>
+                  ))}
+                </select>
+                <Button 
+                  onClick={() => setShowProductForm(!showProductForm)} 
+                  variant="accent"
+                  disabled={!selectedStall}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Product
+                </Button>
+              </div>
             </div>
 
             {showProductForm && selectedStall && (
@@ -509,7 +564,7 @@ export default function FoodCourt() {
               </Card>
             )}
 
-            {stalls.filter(s => s.is_verified).map((stall) => {
+            {stalls.filter(s => s.is_verified && (!productPanchayathFilter || s.panchayath_id === productPanchayathFilter)).map((stall) => {
               const stallProducts = getStallProducts(stall.id);
               if (stallProducts.length === 0) return null;
               
