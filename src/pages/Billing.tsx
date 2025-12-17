@@ -911,8 +911,8 @@ export default function Billing() {
                     <div className="space-y-2">
                       <Label>Bill Items</Label>
                       <div className="border border-border rounded-lg overflow-hidden">
-                        {/* Header */}
-                        <div className="grid grid-cols-12 gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
+                        {/* Desktop Header - Hidden on mobile */}
+                        <div className="hidden md:grid grid-cols-12 gap-2 p-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
                           <div className="col-span-3">Item</div>
                           <div className="col-span-2 text-center">MRP</div>
                           <div className="col-span-2 text-center">Discount</div>
@@ -923,61 +923,130 @@ export default function Billing() {
                         {/* Items */}
                         <div className="divide-y divide-border">
                           {billItems.map((item) => (
-                            <div key={item.id} className="grid grid-cols-12 gap-2 p-2 items-center">
-                              <div className="col-span-3">
-                                <p className="font-medium text-foreground text-sm truncate">{item.name}</p>
-                                <p className="text-xs text-muted-foreground">Orig: ₹{item.originalPrice}</p>
+                            <div key={item.id} className="p-3">
+                              {/* Mobile Layout */}
+                              <div className="md:hidden space-y-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-foreground">{item.name}</p>
+                                    <p className="text-xs text-muted-foreground">Original: ₹{item.originalPrice}</p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive -mt-1"
+                                    onClick={() => removeItem(item.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">MRP</Label>
+                                    <Input
+                                      type="number"
+                                      value={item.price}
+                                      onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
+                                      className="h-9 text-center"
+                                      min={0}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Discount</Label>
+                                    <Input
+                                      type="number"
+                                      value={item.discount}
+                                      onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
+                                      className="h-9 text-center"
+                                      min={0}
+                                      max={item.originalPrice}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Qty</Label>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                      >
+                                        -
+                                      </Button>
+                                      <span className="w-8 text-center font-bold text-lg">{item.quantity}</span>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                      >
+                                        +
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex justify-end">
+                                  <span className="font-bold text-lg text-primary">₹{item.price * item.quantity}</span>
+                                </div>
                               </div>
-                              <div className="col-span-2">
-                                <Input
-                                  type="number"
-                                  value={item.price}
-                                  onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
-                                  className="h-8 text-center text-sm"
-                                  min={0}
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <Input
-                                  type="number"
-                                  value={item.discount}
-                                  onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
-                                  className="h-8 text-center text-sm"
-                                  min={0}
-                                  max={item.originalPrice}
-                                />
-                              </div>
-                              <div className="col-span-2 flex items-center justify-center gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                >
-                                  -
-                                </Button>
-                                <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                >
-                                  +
-                                </Button>
-                              </div>
-                              <div className="col-span-2 text-right font-semibold text-sm">
-                                ₹{item.price * item.quantity}
-                              </div>
-                              <div className="col-span-1 flex justify-end">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive"
-                                  onClick={() => removeItem(item.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                              
+                              {/* Desktop Layout */}
+                              <div className="hidden md:grid grid-cols-12 gap-2 items-center">
+                                <div className="col-span-3">
+                                  <p className="font-medium text-foreground text-sm truncate">{item.name}</p>
+                                  <p className="text-xs text-muted-foreground">Orig: ₹{item.originalPrice}</p>
+                                </div>
+                                <div className="col-span-2">
+                                  <Input
+                                    type="number"
+                                    value={item.price}
+                                    onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-center text-sm"
+                                    min={0}
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <Input
+                                    type="number"
+                                    value={item.discount}
+                                    onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-center text-sm"
+                                    min={0}
+                                    max={item.originalPrice}
+                                  />
+                                </div>
+                                <div className="col-span-2 flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                  >
+                                    -
+                                  </Button>
+                                  <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+                                <div className="col-span-2 text-right font-semibold text-sm">
+                                  ₹{item.price * item.quantity}
+                                </div>
+                                <div className="col-span-1 flex justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive"
+                                    onClick={() => removeItem(item.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           ))}
