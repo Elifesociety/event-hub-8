@@ -111,6 +111,14 @@ export default function StallEnquiryAdmin() {
     }
   });
 
+  // Calculate enquiry count per panchayath
+  const panchayathCounts = enquiries.reduce((acc, e) => {
+    if (e.panchayath_id) {
+      acc[e.panchayath_id] = (acc[e.panchayath_id] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
   // Filter enquiries by panchayath, mobile, and status
   const filteredEnquiries = enquiries.filter(e => {
     const matchesPanchayath = selectedPanchayath === 'all' || e.panchayath_id === selectedPanchayath;
@@ -536,9 +544,11 @@ export default function StallEnquiryAdmin() {
                         <SelectValue placeholder="All Panchayaths" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Panchayaths</SelectItem>
+                        <SelectItem value="all">All Panchayaths ({enquiries.length})</SelectItem>
                         {panchayaths.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} ({panchayathCounts[p.id] || 0})
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -639,9 +649,11 @@ export default function StallEnquiryAdmin() {
                         <SelectValue placeholder="All Panchayaths" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Panchayaths</SelectItem>
+                        <SelectItem value="all">All Panchayaths ({enquiries.length})</SelectItem>
                         {panchayaths.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} ({panchayathCounts[p.id] || 0})
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
