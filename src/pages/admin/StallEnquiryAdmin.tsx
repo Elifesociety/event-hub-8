@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Store, Plus, Pencil, Trash2, FileText, ArrowUp, ArrowDown, Eye, CheckCircle, RotateCcw } from 'lucide-react';
+import { Store, Plus, Pencil, Trash2, FileText, ArrowUp, ArrowDown, Eye, CheckCircle, RotateCcw, Search } from 'lucide-react';
 
 interface EnquiryField {
   id: string;
@@ -58,6 +58,7 @@ export default function StallEnquiryAdmin() {
   const [isActive, setIsActive] = useState(true);
   const [viewingEnquiry, setViewingEnquiry] = useState<Enquiry | null>(null);
   const [selectedPanchayath, setSelectedPanchayath] = useState<string>('all');
+  const [mobileSearch, setMobileSearch] = useState('');
   const [deletingEnquiry, setDeletingEnquiry] = useState<Enquiry | null>(null);
   const [deleteVerificationCode, setDeleteVerificationCode] = useState('');
 
@@ -110,10 +111,12 @@ export default function StallEnquiryAdmin() {
     }
   });
 
-  // Filter enquiries by panchayath and status
-  const filteredEnquiries = selectedPanchayath === 'all' 
-    ? enquiries 
-    : enquiries.filter(e => e.panchayath_id === selectedPanchayath);
+  // Filter enquiries by panchayath, mobile, and status
+  const filteredEnquiries = enquiries.filter(e => {
+    const matchesPanchayath = selectedPanchayath === 'all' || e.panchayath_id === selectedPanchayath;
+    const matchesMobile = mobileSearch === '' || e.mobile.includes(mobileSearch);
+    return matchesPanchayath && matchesMobile;
+  });
 
   const pendingEnquiries = filteredEnquiries.filter(e => e.status === 'pending');
   const completedEnquiries = filteredEnquiries.filter(e => e.status === 'verified');
@@ -524,12 +527,12 @@ export default function StallEnquiryAdmin() {
               </TabsContent>
 
               <TabsContent value="pending-enquiries">
-                {/* Panchayath Filter */}
-                <div className="mb-4 flex items-center gap-4">
+                {/* Filters */}
+                <div className="mb-4 flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium">Filter by Panchayath:</Label>
+                    <Label className="text-sm font-medium">Panchayath:</Label>
                     <Select value={selectedPanchayath} onValueChange={setSelectedPanchayath}>
-                      <SelectTrigger className="w-[200px]">
+                      <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All Panchayaths" />
                       </SelectTrigger>
                       <SelectContent>
@@ -539,6 +542,18 @@ export default function StallEnquiryAdmin() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Mobile:</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by mobile..."
+                        value={mobileSearch}
+                        onChange={(e) => setMobileSearch(e.target.value)}
+                        className="w-[180px] pl-8"
+                      />
+                    </div>
                   </div>
                   <span className="text-sm text-muted-foreground">
                     Showing {pendingEnquiries.length} pending enquiries
@@ -615,12 +630,12 @@ export default function StallEnquiryAdmin() {
               </TabsContent>
 
               <TabsContent value="completed-enquiries">
-                {/* Panchayath Filter */}
-                <div className="mb-4 flex items-center gap-4">
+                {/* Filters */}
+                <div className="mb-4 flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium">Filter by Panchayath:</Label>
+                    <Label className="text-sm font-medium">Panchayath:</Label>
                     <Select value={selectedPanchayath} onValueChange={setSelectedPanchayath}>
-                      <SelectTrigger className="w-[200px]">
+                      <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All Panchayaths" />
                       </SelectTrigger>
                       <SelectContent>
@@ -630,6 +645,18 @@ export default function StallEnquiryAdmin() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Mobile:</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by mobile..."
+                        value={mobileSearch}
+                        onChange={(e) => setMobileSearch(e.target.value)}
+                        className="w-[180px] pl-8"
+                      />
+                    </div>
                   </div>
                   <span className="text-sm text-muted-foreground">
                     Showing {completedEnquiries.length} completed enquiries
