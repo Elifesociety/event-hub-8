@@ -372,8 +372,10 @@ export type Database = {
           id: string
           mobile: string | null
           name: string
+          panchayath_id: string | null
           receipt_number: string | null
           registration_type: Database["public"]["Enums"]["registration_type"]
+          ward_id: string | null
         }
         Insert: {
           amount?: number
@@ -382,8 +384,10 @@ export type Database = {
           id?: string
           mobile?: string | null
           name: string
+          panchayath_id?: string | null
           receipt_number?: string | null
           registration_type: Database["public"]["Enums"]["registration_type"]
+          ward_id?: string | null
         }
         Update: {
           amount?: number
@@ -392,10 +396,27 @@ export type Database = {
           id?: string
           mobile?: string | null
           name?: string
+          panchayath_id?: string | null
           receipt_number?: string | null
           registration_type?: Database["public"]["Enums"]["registration_type"]
+          ward_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "registrations_panchayath_id_fkey"
+            columns: ["panchayath_id"]
+            isOneToOne: false
+            referencedRelation: "panchayaths"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registrations_ward_id_fkey"
+            columns: ["ward_id"]
+            isOneToOne: false
+            referencedRelation: "wards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales_returns: {
         Row: {

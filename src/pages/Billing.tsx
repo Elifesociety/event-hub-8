@@ -85,7 +85,9 @@ export default function Billing() {
     name: "",
     category: "",
     mobile: "",
-    amount: ""
+    amount: "",
+    panchayath_id: "",
+    ward_id: ""
   });
 
   // Stall Summary state
@@ -212,6 +214,22 @@ export default function Billing() {
       if (error) throw error;
       return data as Panchayath[];
     }
+  });
+
+  // Fetch wards based on selected panchayath for registration
+  const { data: registrationWards = [] } = useQuery({
+    queryKey: ['registration_wards', registration.panchayath_id],
+    queryFn: async () => {
+      if (!registration.panchayath_id) return [];
+      const { data, error } = await supabase
+        .from('wards')
+        .select('*')
+        .eq('panchayath_id', registration.panchayath_id)
+        .order('ward_number');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!registration.panchayath_id
   });
 
   // Fetch sales returns
@@ -374,7 +392,9 @@ export default function Billing() {
           category: reg.category || null,
           mobile: reg.mobile || null,
           amount: parseFloat(reg.amount),
-          receipt_number: receiptNumber
+          receipt_number: receiptNumber,
+          panchayath_id: reg.panchayath_id || null,
+          ward_id: reg.ward_id || null
         })
         .select()
         .single();
@@ -383,7 +403,7 @@ export default function Billing() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
-      setRegistration({ type: "stall_counter", name: "", category: "", mobile: "", amount: "" });
+      setRegistration({ type: "stall_counter", name: "", category: "", mobile: "", amount: "", panchayath_id: "", ward_id: "" });
       toast.success("Registration completed!");
     },
     onError: (error) => {
@@ -1973,6 +1993,44 @@ export default function Billing() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label>Panchayath</Label>
+                    <Select
+                      value={registration.panchayath_id}
+                      onValueChange={(value) => setRegistration(prev => ({ ...prev, panchayath_id: value, ward_id: "" }))}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select panchayath" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {panchayaths.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {registration.panchayath_id && (
+                    <div className="space-y-2">
+                      <Label>Ward</Label>
+                      <Select
+                        value={registration.ward_id}
+                        onValueChange={(value) => setRegistration(prev => ({ ...prev, ward_id: value }))}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select ward" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {registrationWards.map((w) => (
+                            <SelectItem key={w.id} value={w.id}>
+                              Ward {w.ward_number}{w.ward_name ? ` - ${w.ward_name}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
                     <Label htmlFor="emp-book-amount">Amount *</Label>
                     <Input
                       id="emp-book-amount"
@@ -2075,6 +2133,44 @@ export default function Billing() {
                       placeholder="Enter mobile number"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Panchayath</Label>
+                    <Select
+                      value={registration.panchayath_id}
+                      onValueChange={(value) => setRegistration(prev => ({ ...prev, panchayath_id: value, ward_id: "" }))}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select panchayath" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {panchayaths.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {registration.panchayath_id && (
+                    <div className="space-y-2">
+                      <Label>Ward</Label>
+                      <Select
+                        value={registration.ward_id}
+                        onValueChange={(value) => setRegistration(prev => ({ ...prev, ward_id: value }))}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select ward" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {registrationWards.map((w) => (
+                            <SelectItem key={w.id} value={w.id}>
+                              Ward {w.ward_number}{w.ward_name ? ` - ${w.ward_name}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="emp-reg-amount">Amount *</Label>
