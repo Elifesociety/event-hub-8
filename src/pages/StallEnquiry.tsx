@@ -69,6 +69,7 @@ export default function StallEnquiry() {
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [helpMobile, setHelpMobile] = useState('');
   const [helpSubmitting, setHelpSubmitting] = useState(false);
+  const [helpSuccessDialogOpen, setHelpSuccessDialogOpen] = useState(false);
 
   // Fetch form fields
   const { data: fields = [] } = useQuery({
@@ -309,16 +310,20 @@ ${products.map((p, i) => `${i + 1}. ${p.product_name} - CP: ₹${p.cost_price}, 
       
       if (error) throw error;
       
-      toast({ title: 'സഹായ അഭ്യർത്ഥന അയച്ചു!' });
       setHelpDialogOpen(false);
       setHelpMobile('');
-      navigate('/survey-view');
+      setHelpSuccessDialogOpen(true);
     } catch (error) {
       console.error('Error:', error);
       toast({ title: 'സഹായ അഭ്യർത്ഥന അയയ്ക്കാനായില്ല', variant: 'destructive' });
     } finally {
       setHelpSubmitting(false);
     }
+  };
+
+  const handleHelpSuccessOk = () => {
+    setHelpSuccessDialogOpen(false);
+    navigate('/survey-view');
   };
 
   return (
@@ -364,6 +369,31 @@ ${products.map((p, i) => `${i + 1}. ${p.product_name} - CP: ₹${p.cost_price}, 
                   {helpSubmitting ? 'അയയ്ക്കുന്നു...' : 'അയയ്ക്കുക'}
                 </Button>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Help Success Dialog */}
+        <Dialog open={helpSuccessDialogOpen} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center text-green-600">
+                <CheckCircle className="h-12 w-12 mx-auto mb-3" />
+              </DialogTitle>
+            </DialogHeader>
+            <div className="text-center space-y-4 py-4">
+              <p className="text-lg font-medium">
+                നിങ്ങളുടെ അഭ്യർത്ഥന ലഭിച്ചു!
+              </p>
+              <p className="text-muted-foreground">
+                ഞങ്ങൾ ഉടൻ തന്നെ നിങ്ങളെ ബന്ധപ്പെടും.
+              </p>
+              <Button
+                onClick={handleHelpSuccessOk}
+                className="w-full bg-primary hover:bg-primary/90"
+              >
+                ശരി
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
