@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Store, Plus, Pencil, Trash2, FileText, ArrowUp, ArrowDown, Eye, CheckCircle, RotateCcw, Search } from 'lucide-react';
+import { Store, Plus, Pencil, Trash2, FileText, ArrowUp, ArrowDown, Eye, CheckCircle, RotateCcw, Search, HelpCircle, Bell } from 'lucide-react';
 
 interface EnquiryField {
   id: string;
@@ -43,9 +43,20 @@ interface Enquiry {
   wards?: { ward_number: string; ward_name: string | null } | null;
 }
 
+interface HelpRequest {
+  id: string;
+  name: string | null;
+  mobile: string | null;
+  message: string;
+  status: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
 export default function StallEnquiryAdmin() {
   const { admin, isLoading } = useAdminAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -61,6 +72,9 @@ export default function StallEnquiryAdmin() {
   const [mobileSearch, setMobileSearch] = useState('');
   const [deletingEnquiry, setDeletingEnquiry] = useState<Enquiry | null>(null);
   const [deleteVerificationCode, setDeleteVerificationCode] = useState('');
+
+  // Get default tab from URL params
+  const defaultTab = searchParams.get('tab') || 'pending-enquiries';
 
   useEffect(() => {
     if (!isLoading && !admin) {
@@ -143,6 +157,21 @@ export default function StallEnquiryAdmin() {
   const totalPendingCount = enquiries.filter(e => e.status === 'pending').length;
   const totalCompletedCount = enquiries.filter(e => e.status === 'verified').length;
 
+  // Fetch help requests
+  const { data: helpRequests = [] } = useQuery({
+    queryKey: ['stall-enquiry-help-requests'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stall_enquiry_help_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as HelpRequest[];
+    }
+  });
+
+  const pendingHelpRequests = helpRequests.filter(h => h.status === 'pending');
+
   // Filter enquiries by panchayath, mobile, and status
   const filteredEnquiries = enquiries.filter(e => {
     const matchesPanchayath = selectedPanchayath === 'all' || e.panchayath_id === selectedPanchayath;
@@ -152,6 +181,35 @@ export default function StallEnquiryAdmin() {
 
   const pendingEnquiries = filteredEnquiries.filter(e => e.status === 'pending');
   const completedEnquiries = filteredEnquiries.filter(e => e.status === 'verified');
+
+  // Help request mutations
+  const resolveHelpMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('stall_enquiry_help_requests')
+        .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stall-enquiry-help-requests'] });
+      toast({ title: 'Help request resolved' });
+    }
+  });
+
+  const deleteHelpMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('stall_enquiry_help_requests')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stall-enquiry-help-requests'] });
+      toast({ title: 'Help request deleted' });
+    }
+  });
 
   const addFieldMutation = useMutation({
     mutationFn: async () => {
@@ -359,10 +417,19 @@ export default function StallEnquiryAdmin() {
             <CardDescription>Manage stall enquiry form fields and view submissions</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="pending-enquiries">
-              <TabsList className="mb-4">
+            <Tabs defaultValue={defaultTab}>
+              <TabsList className="mb-4 flex-wrap">
                 <TabsTrigger value="pending-enquiries">Pending Enquiries ({pendingEnquiries.length})</TabsTrigger>
                 <TabsTrigger value="completed-enquiries">Completed Enquiries ({completedEnquiries.length})</TabsTrigger>
+                <TabsTrigger value="help-requests" className="relative">
+                  <HelpCircle className="h-4 w-4 mr-1" />
+                  Help Requests
+                  {pendingHelpRequests.length > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {pendingHelpRequests.length}
+                    </span>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="fields">Form Fields</TabsTrigger>
               </TabsList>
 
@@ -765,6 +832,76 @@ export default function StallEnquiryAdmin() {
                                 variant="ghost" 
                                 size="icon"
                                 onClick={() => setDeletingEnquiry(enquiry)}
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+
+              <TabsContent value="help-requests">
+                <div className="mb-4">
+                  <span className="text-sm text-muted-foreground">
+                    {pendingHelpRequests.length} pending help requests
+                  </span>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Mobile</TableHead>
+                      <TableHead>Message</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {helpRequests.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          No help requests
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      helpRequests.map((request) => (
+                        <TableRow key={request.id} className={request.status === 'pending' ? 'bg-orange-50' : ''}>
+                          <TableCell className="font-medium">{request.name || '-'}</TableCell>
+                          <TableCell>{request.mobile || '-'}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{request.message}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              request.status === 'pending' 
+                                ? 'bg-orange-100 text-orange-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {request.status === 'pending' ? 'Pending' : 'Resolved'}
+                            </span>
+                          </TableCell>
+                          <TableCell>{new Date(request.created_at).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {request.status === 'pending' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => resolveHelpMutation.mutate(request.id)}
+                                  title="Mark as Resolved"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </Button>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => deleteHelpMutation.mutate(request.id)}
                                 title="Delete"
                               >
                                 <Trash2 className="h-4 w-4 text-red-600" />

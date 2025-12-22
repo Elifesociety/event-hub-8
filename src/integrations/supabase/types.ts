@@ -538,6 +538,36 @@ export type Database = {
         }
         Relationships: []
       }
+      stall_enquiry_help_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          mobile: string | null
+          name: string | null
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          mobile?: string | null
+          name?: string | null
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          mobile?: string | null
+          name?: string | null
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       stalls: {
         Row: {
           counter_name: string
