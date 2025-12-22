@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Store, Send, CheckCircle, Plus, Trash2, MessageCircle } from 'lucide-react';
+import { Store, Send, CheckCircle, Plus, Trash2, MessageCircle, HelpCircle } from 'lucide-react';
 
 interface EnquiryField {
   id: string;
@@ -285,9 +285,43 @@ ${products.map((p, i) => `${i + 1}. ${p.product_name} - CP: ₹${p.cost_price}, 
     );
   }
 
+  const handleNeedHelp = async () => {
+    try {
+      const { error } = await supabase
+        .from('stall_enquiry_help_requests')
+        .insert({
+          name: name || null,
+          mobile: mobile || null,
+          message: 'Need help with stall enquiry form'
+        });
+      
+      if (error) throw error;
+      
+      toast({ title: 'സഹായ അഭ്യർത്ഥന അയച്ചു!' });
+      // Open admin page in new tab
+      window.open('/admin/stall-enquiry?tab=help-requests', '_blank');
+    } catch (error) {
+      console.error('Error:', error);
+      toast({ title: 'സഹായ അഭ്യർത്ഥന അയയ്ക്കാനായില്ല', variant: 'destructive' });
+    }
+  };
+
   return (
     <PageLayout>
       <div className="container py-8 max-w-2xl mx-auto">
+        {/* Need Help Button */}
+        <div className="flex justify-end mb-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleNeedHelp}
+            className="bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100"
+          >
+            <HelpCircle className="h-4 w-4 mr-2" />
+            സഹായം വേണം
+          </Button>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
