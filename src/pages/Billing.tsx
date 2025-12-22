@@ -21,7 +21,11 @@ import {
   Pencil,
   BarChart3,
   Store,
-  RotateCcw
+  RotateCcw,
+  ArrowLeft,
+  ShoppingCart,
+  ClipboardList,
+  Briefcase
 } from "lucide-react";
 import {
   Select,
@@ -764,34 +768,152 @@ export default function Billing() {
   });
   const itemsSold = Array.from(itemsSoldMap.values()).sort((a, b) => b.total - a.total);
 
+  // Active view state
+  const [activeView, setActiveView] = useState<string | null>(null);
+
+  const renderCategoryDashboard = () => (
+    <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+      {/* Sales Category Card */}
+      <Card className="bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent border-emerald-500/30 hover:shadow-lg transition-shadow">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+            <ShoppingCart className="h-5 w-5" />
+            Sales
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">Billing and receipts management</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-12 border-emerald-500/30 hover:bg-emerald-500/10"
+            onClick={() => setActiveView("billing")}
+          >
+            <Receipt className="h-5 w-5 text-emerald-600" />
+            <div className="text-left">
+              <p className="font-medium">Billing</p>
+              <p className="text-xs text-muted-foreground">Create new bills</p>
+            </div>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-12 border-emerald-500/30 hover:bg-emerald-500/10"
+            onClick={() => setActiveView("receipts")}
+          >
+            <Printer className="h-5 w-5 text-emerald-600" />
+            <div className="text-left">
+              <p className="font-medium">Receipts</p>
+              <p className="text-xs text-muted-foreground">View pending & paid bills</p>
+            </div>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Others Category Card */}
+      <Card className="bg-gradient-to-br from-violet-500/20 via-violet-500/10 to-transparent border-violet-500/30 hover:shadow-lg transition-shadow">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-violet-700 dark:text-violet-400">
+            <ClipboardList className="h-5 w-5" />
+            Others
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">Registrations and summaries</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-12 border-violet-500/30 hover:bg-violet-500/10"
+            onClick={() => setActiveView("registrations")}
+          >
+            <UserPlus className="h-5 w-5 text-violet-600" />
+            <div className="text-left">
+              <p className="font-medium">Registrations</p>
+              <p className="text-xs text-muted-foreground">Stall registration fees</p>
+            </div>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-12 border-violet-500/30 hover:bg-violet-500/10"
+            onClick={() => setActiveView("stall-summary")}
+          >
+            <BarChart3 className="h-5 w-5 text-violet-600" />
+            <div className="text-left">
+              <p className="font-medium">Stall Summary</p>
+              <p className="text-xs text-muted-foreground">View stall sales reports</p>
+            </div>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-12 border-violet-500/30 hover:bg-violet-500/10"
+            onClick={() => setActiveView("employment-booking")}
+          >
+            <Briefcase className="h-5 w-5 text-violet-600" />
+            <div className="text-left">
+              <p className="font-medium">Employment Booking</p>
+              <p className="text-xs text-muted-foreground">Job booking registrations</p>
+            </div>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-12 border-violet-500/30 hover:bg-violet-500/10"
+            onClick={() => setActiveView("employment-registration")}
+          >
+            <UserPlus className="h-5 w-5 text-violet-600" />
+            <div className="text-left">
+              <p className="font-medium">Employment Registration Fee</p>
+              <p className="text-xs text-muted-foreground">Employment fee collection</p>
+            </div>
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <PageLayout>
       <div className="container py-4 md:py-8 px-3 md:px-6">
-        <div className="mb-4 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Billing & Registrations</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">Process bills and manage registrations</p>
+        <div className="mb-4 md:mb-8 flex items-center gap-3">
+          {activeView && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setActiveView(null)}
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              {!activeView && "Billing & Registrations"}
+              {activeView === "billing" && "Billing"}
+              {activeView === "receipts" && "Receipts"}
+              {activeView === "registrations" && "Registrations"}
+              {activeView === "stall-summary" && "Stall Summary"}
+              {activeView === "employment-booking" && "Employment Booking"}
+              {activeView === "employment-registration" && "Employment Registration Fee"}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">
+              {!activeView && "Process bills and manage registrations"}
+              {activeView === "billing" && "Create new bills for stalls"}
+              {activeView === "receipts" && "View pending and paid bills"}
+              {activeView === "registrations" && "Manage stall registration fees"}
+              {activeView === "stall-summary" && "View individual stall reports"}
+              {activeView === "employment-booking" && "Register employment bookings"}
+              {activeView === "employment-registration" && "Collect employment registration fees"}
+            </p>
+          </div>
         </div>
 
-        <Tabs defaultValue="billing" className="space-y-4 md:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 md:max-w-2xl h-auto">
-            <TabsTrigger value="billing" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2">
-              <Receipt className="h-3 w-3 md:h-4 md:w-4" />
-              Billing
-            </TabsTrigger>
-            <TabsTrigger value="receipts" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2">
-              <Printer className="h-3 w-3 md:h-4 md:w-4" />
-              Receipts
-            </TabsTrigger>
-            <TabsTrigger value="registrations" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2">
-              <UserPlus className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Registrations</span>
-              <span className="sm:hidden">Reg.</span>
-            </TabsTrigger>
-            <TabsTrigger value="stall-summary" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2">
-              <BarChart3 className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Stall Summary</span>
-              <span className="sm:hidden">Summary</span>
-            </TabsTrigger>
+        {!activeView ? (
+          renderCategoryDashboard()
+        ) : (
+        <Tabs value={activeView} className="space-y-4 md:space-y-6">
+          <TabsList className="sr-only">
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="receipts">Receipts</TabsTrigger>
+            <TabsTrigger value="registrations">Registrations</TabsTrigger>
+            <TabsTrigger value="stall-summary">Stall Summary</TabsTrigger>
+            <TabsTrigger value="employment-booking">Employment Booking</TabsTrigger>
+            <TabsTrigger value="employment-registration">Employment Registration</TabsTrigger>
           </TabsList>
 
           <TabsContent value="billing">
@@ -1811,8 +1933,216 @@ export default function Billing() {
               )}
             </div>
           </TabsContent>
-        </Tabs>
 
+          {/* Employment Booking Tab */}
+          <TabsContent value="employment-booking">
+            <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>New Employment Booking</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-book-name">Name *</Label>
+                    <Input
+                      id="emp-book-name"
+                      value={registration.name}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, name: e.target.value, type: 'employment_booking' }))}
+                      placeholder="Enter name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-book-category">Category</Label>
+                    <Input
+                      id="emp-book-category"
+                      value={registration.category}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, category: e.target.value }))}
+                      placeholder="Enter category"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-book-mobile">Mobile</Label>
+                    <Input
+                      id="emp-book-mobile"
+                      value={registration.mobile}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, mobile: e.target.value }))}
+                      placeholder="Enter mobile number"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-book-amount">Amount *</Label>
+                    <Input
+                      id="emp-book-amount"
+                      type="number"
+                      value={registration.amount}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, amount: e.target.value }))}
+                      placeholder="Enter amount"
+                    />
+                  </div>
+
+                  <Button 
+                    onClick={() => {
+                      setRegistration(prev => ({ ...prev, type: 'employment_booking' }));
+                      handleRegistration();
+                    }} 
+                    className="w-full" 
+                    size="lg"
+                    disabled={createRegMutation.isPending}
+                  >
+                    {createRegMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    Complete Booking
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Bookings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {regsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : registrations.filter(r => r.registration_type === 'employment_booking').length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No employment bookings yet</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {registrations.filter(r => r.registration_type === 'employment_booking').slice(0, 10).map((reg) => (
+                        <div key={reg.id} className="p-4 border border-border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold text-foreground">{reg.name}</span>
+                            <Badge variant="outline">Employment Booking</Badge>
+                          </div>
+                          {reg.category && (
+                            <p className="text-sm text-muted-foreground">Category: {reg.category}</p>
+                          )}
+                          {reg.mobile && (
+                            <p className="text-sm text-muted-foreground">Mobile: {reg.mobile}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground">{reg.receipt_number}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-muted-foreground">{formatDate(reg.created_at)}</span>
+                            <span className="text-lg font-bold text-primary">₹{reg.amount}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Employment Registration Tab */}
+          <TabsContent value="employment-registration">
+            <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>New Employment Registration Fee</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-reg-name">Name *</Label>
+                    <Input
+                      id="emp-reg-name"
+                      value={registration.name}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, name: e.target.value, type: 'employment_registration' }))}
+                      placeholder="Enter name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-reg-category">Category</Label>
+                    <Input
+                      id="emp-reg-category"
+                      value={registration.category}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, category: e.target.value }))}
+                      placeholder="Enter category"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-reg-mobile">Mobile</Label>
+                    <Input
+                      id="emp-reg-mobile"
+                      value={registration.mobile}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, mobile: e.target.value }))}
+                      placeholder="Enter mobile number"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emp-reg-amount">Amount *</Label>
+                    <Input
+                      id="emp-reg-amount"
+                      type="number"
+                      value={registration.amount}
+                      onChange={(e) => setRegistration(prev => ({ ...prev, amount: e.target.value }))}
+                      placeholder="Enter amount"
+                    />
+                  </div>
+
+                  <Button 
+                    onClick={() => {
+                      setRegistration(prev => ({ ...prev, type: 'employment_registration' }));
+                      handleRegistration();
+                    }} 
+                    className="w-full" 
+                    size="lg"
+                    disabled={createRegMutation.isPending}
+                  >
+                    {createRegMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Complete Registration
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Registrations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {regsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : registrations.filter(r => r.registration_type === 'employment_registration').length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No employment registrations yet</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {registrations.filter(r => r.registration_type === 'employment_registration').slice(0, 10).map((reg) => (
+                        <div key={reg.id} className="p-4 border border-border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold text-foreground">{reg.name}</span>
+                            <Badge variant="outline">Employment Reg.</Badge>
+                          </div>
+                          {reg.category && (
+                            <p className="text-sm text-muted-foreground">Category: {reg.category}</p>
+                          )}
+                          {reg.mobile && (
+                            <p className="text-sm text-muted-foreground">Mobile: {reg.mobile}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground">{reg.receipt_number}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-muted-foreground">{formatDate(reg.created_at)}</span>
+                            <span className="text-lg font-bold text-primary">₹{reg.amount}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+        )}
         {/* Edit Stall Dialog */}
         <Dialog open={!!editingStall} onOpenChange={(open) => !open && setEditingStall(null)}>
           <DialogContent>
