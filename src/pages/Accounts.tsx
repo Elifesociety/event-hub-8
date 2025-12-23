@@ -718,21 +718,154 @@ export default function Accounts() {
           </TabsContent>
 
           <TabsContent value="payments">
+            {/* Summary Cards for Payments */}
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Store className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Stall Payments (Event)</p>
+                      <p className="text-xl font-bold text-foreground">₹{stallPaymentsTotal.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                      <Receipt className="h-5 w-5 text-warning" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Other Payments</p>
+                      <p className="text-xl font-bold text-foreground">₹{otherPaymentsTotal.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Event Payments (Stall Payments) */}
             <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center">
-                    <Receipt className="h-5 w-5 text-warning" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Other Payments</p>
-                    <p className="text-xl font-bold text-foreground">₹{otherPaymentsTotal.toLocaleString()}</p>
-                  </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Store className="h-5 w-5 text-primary" />
+                  Event Payments (Stall Payments)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Stall</th>
+                        <th className="text-left p-4 font-medium text-muted-foreground">Description</th>
+                        <th className="text-right p-4 font-medium text-muted-foreground">Amount</th>
+                        <th className="text-right p-4 font-medium text-muted-foreground">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paymentsLoading ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                          </td>
+                        </tr>
+                      ) : payments.filter((p: any) => p.payment_type === 'participant').length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-muted-foreground">No event payments yet</td>
+                        </tr>
+                      ) : (
+                        payments.filter((p: any) => p.payment_type === 'participant').map((p: any) => (
+                          <tr key={p.id} className="border-b border-border/50">
+                            <td className="p-4 text-muted-foreground">{formatDate(p.created_at)}</td>
+                            <td className="p-4">
+                              <span className="px-2 py-1 bg-primary/10 text-primary rounded-md text-sm">
+                                {p.stalls?.counter_name || 'Unknown Stall'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-foreground">
+                              {editingPaymentId === p.id ? (
+                                <Input
+                                  value={editPaymentData.narration}
+                                  onChange={(e) => setEditPaymentData({ ...editPaymentData, narration: e.target.value })}
+                                  className="w-full"
+                                />
+                              ) : (
+                                p.narration || 'Stall payment'
+                              )}
+                            </td>
+                            <td className="p-4 text-right font-semibold text-destructive">
+                              {editingPaymentId === p.id ? (
+                                <Input
+                                  type="number"
+                                  value={editPaymentData.amount}
+                                  onChange={(e) => setEditPaymentData({ ...editPaymentData, amount: e.target.value })}
+                                  className="w-24 ml-auto"
+                                />
+                              ) : (
+                                `-₹${p.amount_paid.toLocaleString()}`
+                              )}
+                            </td>
+                            <td className="p-4 text-right">
+                              {editingPaymentId === p.id ? (
+                                <div className="flex justify-end gap-1">
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    onClick={handleSaveEdit}
+                                    disabled={updatePaymentMutation.isPending}
+                                  >
+                                    <Check className="h-4 w-4 text-success" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    onClick={() => setEditingPaymentId(null)}
+                                  >
+                                    <X className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex justify-end gap-1">
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    onClick={() => handleEditPayment(p)}
+                                  >
+                                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    onClick={() => setDeletePaymentId(p.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Other Payments */}
             <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-warning" />
+                  Other Payments
+                </CardTitle>
+              </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -753,7 +886,7 @@ export default function Accounts() {
                         </tr>
                       ) : payments.filter((p: any) => p.payment_type === 'other').length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-muted-foreground">No payments yet</td>
+                          <td colSpan={4} className="p-8 text-center text-muted-foreground">No other payments yet</td>
                         </tr>
                       ) : (
                         payments.filter((p: any) => p.payment_type === 'other').map((p: any) => (
