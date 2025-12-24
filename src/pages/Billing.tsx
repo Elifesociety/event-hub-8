@@ -69,6 +69,7 @@ export default function Billing() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [billRemarks, setBillRemarks] = useState("");
   const [counterNumberInput, setCounterNumberInput] = useState("");
+  const [productNumberInput, setProductNumberInput] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Edit stall state
@@ -1060,6 +1061,65 @@ export default function Billing() {
                     </div>
                   </div>
 
+                  {selectedStalls.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Add Product by Number</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={productNumberInput}
+                          onChange={(e) => setProductNumberInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const productNum = productNumberInput.trim();
+                              if (!productNum) return;
+                              
+                              const matchingProduct = stallProducts.find(p => 
+                                p.product_number?.toLowerCase() === productNum.toLowerCase() ||
+                                p.product_number === productNum.padStart(3, '0')
+                              );
+                              
+                              if (matchingProduct) {
+                                addItemToBill(matchingProduct);
+                                setProductNumberInput("");
+                                toast.success(`Added ${matchingProduct.item_name}`);
+                              } else {
+                                toast.error("Product not found in selected counters");
+                              }
+                            }
+                          }}
+                          placeholder="Enter product number (e.g., 001)"
+                          className="h-10 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            const productNum = productNumberInput.trim();
+                            if (!productNum) return;
+                            
+                            const matchingProduct = stallProducts.find(p => 
+                              p.product_number?.toLowerCase() === productNum.toLowerCase() ||
+                              p.product_number === productNum.padStart(3, '0')
+                            );
+                            
+                            if (matchingProduct) {
+                              addItemToBill(matchingProduct);
+                              setProductNumberInput("");
+                              toast.success(`Added ${matchingProduct.item_name}`);
+                            } else {
+                              toast.error("Product not found in selected counters");
+                            }
+                          }}
+                          className="h-10"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedStalls.length > 0 && stallProducts.length > 0 && (
                     <div className="space-y-2">
                       <Label>Add Items</Label>
@@ -1072,7 +1132,7 @@ export default function Billing() {
                             onClick={() => addItemToBill(product)}
                           >
                             <Plus className="h-3 w-3 mr-1" />
-                            {product.item_name} - ₹{product.selling_price}
+                            {product.product_number ? `#${product.product_number} - ` : ''}{product.item_name} - ₹{product.selling_price}
                           </Button>
                         ))}
                       </div>
