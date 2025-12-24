@@ -291,6 +291,7 @@ export type Database = {
           event_margin: number | null
           id: string
           item_name: string
+          product_number: string | null
           selling_price: number | null
           stall_id: string
           updated_at: string | null
@@ -301,6 +302,7 @@ export type Database = {
           event_margin?: number | null
           id?: string
           item_name: string
+          product_number?: string | null
           selling_price?: number | null
           stall_id: string
           updated_at?: string | null
@@ -311,6 +313,7 @@ export type Database = {
           event_margin?: number | null
           id?: string
           item_name?: string
+          product_number?: string | null
           selling_price?: number | null
           stall_id?: string
           updated_at?: string | null

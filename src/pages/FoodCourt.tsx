@@ -821,6 +821,7 @@ export default function FoodCourt() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border">
+                            <th className="text-left py-2 font-medium text-muted-foreground">No.</th>
                             <th className="text-left py-2 font-medium text-muted-foreground">Item Name</th>
                             <th className="text-right py-2 font-medium text-muted-foreground">Cost Price</th>
                             <th className="text-right py-2 font-medium text-muted-foreground">Margin</th>
@@ -831,6 +832,7 @@ export default function FoodCourt() {
                         <tbody>
                           {stallProducts.map((product) => (
                             <tr key={product.id} className="border-b border-border/50">
+                              <td className="py-3 font-medium text-primary">{product.product_number || '-'}</td>
                               <td className="py-3 font-medium text-foreground">{product.item_name}</td>
                               <td className="py-3 text-right text-muted-foreground">₹{product.cost_price}</td>
                               <td className="py-3 text-right text-success">{product.event_margin}%</td>
