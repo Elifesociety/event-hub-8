@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Search, Pencil, Trash2, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Search, Pencil, Trash2, Users, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface CustomerRegistration {
@@ -35,9 +36,21 @@ interface Ward {
   ward_name: string | null;
 }
 
+interface ProductWithBilling {
+  id: string;
+  item_name: string;
+  product_number: string | null;
+  cost_price: number;
+  selling_price: number | null;
+  stall_name: string;
+  total_billed: number;
+  total_quantity: number;
+}
+
 export default function CustomerManagement() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [productSearchTerm, setProductSearchTerm] = useState("");
   const [filterPanchayath, setFilterPanchayath] = useState<string>("all");
   const [editingCustomer, setEditingCustomer] = useState<CustomerRegistration | null>(null);
   const [editForm, setEditForm] = useState({
@@ -85,6 +98,61 @@ export default function CustomerManagement() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as CustomerRegistration[];
+    },
+  });
+
+  // Fetch products with billing data
+  const { data: productsWithBilling = [], isLoading: isLoadingProducts } = useQuery({
+    queryKey: ["products-with-billing"],
+    queryFn: async () => {
+      // Get all products with stall info
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select(`
+          id,
+          item_name,
+          product_number,
+          cost_price,
+          selling_price,
+          stalls(counter_name)
+        `)
+        .order("product_number");
+      if (productsError) throw productsError;
+
+      // Get all billing transactions
+      const { data: transactions, error: transError } = await supabase
+        .from("billing_transactions")
+        .select("items");
+      if (transError) throw transError;
+
+      // Calculate total billed for each product
+      const productBillingMap: Record<string, { total: number; quantity: number }> = {};
+      
+      transactions?.forEach((tx) => {
+        const items = tx.items as Array<{ productId: string; quantity: number; subtotal: number }>;
+        items?.forEach((item) => {
+          if (!productBillingMap[item.productId]) {
+            productBillingMap[item.productId] = { total: 0, quantity: 0 };
+          }
+          productBillingMap[item.productId].total += item.subtotal || 0;
+          productBillingMap[item.productId].quantity += item.quantity || 0;
+        });
+      });
+
+      // Combine products with billing data
+      const result: ProductWithBilling[] = products?.map((p: any) => ({
+        id: p.id,
+        item_name: p.item_name,
+        product_number: p.product_number,
+        cost_price: p.cost_price,
+        selling_price: p.selling_price,
+        stall_name: p.stalls?.counter_name || "Unknown",
+        total_billed: productBillingMap[p.id]?.total || 0,
+        total_quantity: productBillingMap[p.id]?.quantity || 0,
+      })) || [];
+
+      // Sort by total billed (descending)
+      return result.sort((a, b) => b.total_billed - a.total_billed);
     },
   });
 
@@ -160,6 +228,12 @@ export default function CustomerManagement() {
     return matchesSearch && matchesPanchayath;
   });
 
+  const filteredProducts = productsWithBilling.filter((p) =>
+    p.item_name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    p.stall_name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    (p.product_number && p.product_number.includes(productSearchTerm))
+  );
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto">
@@ -178,85 +252,160 @@ export default function CustomerManagement() {
               </div>
               <div>
                 <CardTitle>Customer Management</CardTitle>
-                <CardDescription>Manage registered customers</CardDescription>
+                <CardDescription>Manage participants and products</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, mobile, or place..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={filterPanchayath} onValueChange={setFilterPanchayath}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Filter by Panchayath" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Panchayaths</SelectItem>
-                  {panchayaths.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Tabs defaultValue="participants" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="participants" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Participants
+                </TabsTrigger>
+                <TabsTrigger value="products" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Products
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Table */}
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading...</div>
-            ) : filteredCustomers.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No customers found</div>
-            ) : (
-              <div className="border rounded-lg overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Mobile</TableHead>
-                      <TableHead>Panchayath</TableHead>
-                      <TableHead>Ward</TableHead>
-                      <TableHead>Place</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCustomers.map((customer) => (
-                      <TableRow key={customer.id}>
-                        <TableCell className="font-medium">{customer.name}</TableCell>
-                        <TableCell>{customer.mobile}</TableCell>
-                        <TableCell>{customer.panchayaths?.name || "-"}</TableCell>
-                        <TableCell>
-                          {customer.wards
-                            ? `${customer.wards.ward_number}${customer.wards.ward_name ? ` - ${customer.wards.ward_name}` : ""}`
-                            : "-"}
-                        </TableCell>
-                        <TableCell>{customer.place}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(customer.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+              {/* Participants Tab */}
+              <TabsContent value="participants">
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, mobile, or place..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={filterPanchayath} onValueChange={setFilterPanchayath}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="Filter by Panchayath" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Panchayaths</SelectItem>
+                      {panchayaths.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="mt-4 text-sm text-muted-foreground">
-              Total: {filteredCustomers.length} customers
-            </div>
+                {/* Table */}
+                {isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                ) : filteredCustomers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No customers found</div>
+                ) : (
+                  <div className="border rounded-lg overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Mobile</TableHead>
+                          <TableHead>Panchayath</TableHead>
+                          <TableHead>Ward</TableHead>
+                          <TableHead>Place</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredCustomers.map((customer) => (
+                          <TableRow key={customer.id}>
+                            <TableCell className="font-medium">{customer.name}</TableCell>
+                            <TableCell>{customer.mobile}</TableCell>
+                            <TableCell>{customer.panchayaths?.name || "-"}</TableCell>
+                            <TableCell>
+                              {customer.wards
+                                ? `${customer.wards.ward_number}${customer.wards.ward_name ? ` - ${customer.wards.ward_name}` : ""}`
+                                : "-"}
+                            </TableCell>
+                            <TableCell>{customer.place}</TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(customer.id)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <div className="mt-4 text-sm text-muted-foreground">
+                  Total: {filteredCustomers.length} participants
+                </div>
+              </TabsContent>
+
+              {/* Products Tab */}
+              <TabsContent value="products">
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by product name, stall, or number..."
+                      value={productSearchTerm}
+                      onChange={(e) => setProductSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {isLoadingProducts ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No products found</div>
+                ) : (
+                  <div className="border rounded-lg overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>P.No</TableHead>
+                          <TableHead>Product Name</TableHead>
+                          <TableHead>Stall</TableHead>
+                          <TableHead className="text-right">Cost Price</TableHead>
+                          <TableHead className="text-right">Selling Price</TableHead>
+                          <TableHead className="text-right">Qty Sold</TableHead>
+                          <TableHead className="text-right">Total Billed</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProducts.map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell className="font-medium">{product.product_number || "-"}</TableCell>
+                            <TableCell>{product.item_name}</TableCell>
+                            <TableCell>{product.stall_name}</TableCell>
+                            <TableCell className="text-right">₹{product.cost_price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              {product.selling_price ? `₹${product.selling_price.toFixed(2)}` : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">{product.total_quantity}</TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">
+                              ₹{product.total_billed.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <div className="mt-4 text-sm text-muted-foreground">
+                  Total: {filteredProducts.length} products | 
+                  Total Billed: ₹{productsWithBilling.reduce((sum, p) => sum + p.total_billed, 0).toFixed(2)}
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
