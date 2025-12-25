@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 
 type AdminRole = 'super_admin' | 'admin';
-type AppModule = 'billing' | 'team' | 'programs' | 'accounts' | 'food_court' | 'photos' | 'registrations' | 'survey' | 'stall_enquiry' | 'food_coupon';
+type AppModule = 'billing' | 'team' | 'programs' | 'accounts' | 'food_court' | 'photos' | 'registrations' | 'survey' | 'stall_enquiry' | 'food_coupon' | 'customers';
 
 interface Admin {
   id: string;
