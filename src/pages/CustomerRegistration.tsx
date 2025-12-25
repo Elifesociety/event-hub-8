@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft, UserPlus, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
 
 interface Panchayath {
   id: string;
@@ -31,6 +33,8 @@ export default function CustomerRegistration() {
     ward_id: "",
     place: "",
   });
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [submittedData, setSubmittedData] = useState<typeof formData | null>(null);
 
   const { data: panchayaths = [] } = useQuery({
     queryKey: ["panchayaths"],
@@ -69,16 +73,31 @@ export default function CustomerRegistration() {
         place: data.place.trim(),
       });
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      toast.success("Registration successful!");
-      setFormData({ name: "", mobile: "", panchayath_id: "", ward_id: "", place: "" });
+    onSuccess: (_, variables) => {
+      setSubmittedData(variables);
+      setSuccessDialogOpen(true);
       queryClient.invalidateQueries({ queryKey: ["customer-registrations"] });
     },
     onError: (error) => {
       toast.error("Registration failed: " + error.message);
     },
   });
+
+  const handleDialogClose = () => {
+    setSuccessDialogOpen(false);
+    setSubmittedData(null);
+    setFormData({ name: "", mobile: "", panchayath_id: "", ward_id: "", place: "" });
+  };
+
+  const getDisplayName = (id: string, list: { id: string; name?: string; ward_number?: string; ward_name?: string | null }[], type: 'panchayath' | 'ward') => {
+    const item = list.find(i => i.id === id);
+    if (!item) return "Not selected";
+    if (type === 'panchayath') return (item as Panchayath).name;
+    const ward = item as Ward;
+    return `${ward.ward_number} - ${ward.ward_name || "No Name"}`;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +207,51 @@ export default function CustomerRegistration() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Success Confirmation Dialog */}
+        <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="h-6 w-6" />
+                Registration Successful!
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">Your registration has been confirmed with the following details:</p>
+              <Separator />
+              {submittedData && (
+                <div className="space-y-3 bg-muted/50 p-4 rounded-lg">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Name:</span>
+                    <span>{submittedData.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Mobile:</span>
+                    <span>{submittedData.mobile}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Panchayath:</span>
+                    <span>{submittedData.panchayath_id ? getDisplayName(submittedData.panchayath_id, panchayaths, 'panchayath') : "Not selected"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Ward:</span>
+                    <span>{submittedData.ward_id ? getDisplayName(submittedData.ward_id, wards, 'ward') : "Not selected"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Place:</span>
+                    <span>{submittedData.place}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={handleDialogClose} className="w-full">
+                OK
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
