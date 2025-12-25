@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Store, Receipt, Wallet, LogOut, IndianRupee, ShoppingCart, CheckCircle, Clock, Eye, X } from "lucide-react";
+import { Store, Receipt, Wallet, LogOut, IndianRupee, ShoppingCart, CheckCircle, Clock, Eye, X, Package } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import logo from "@/assets/logo.jpg";
@@ -66,6 +66,25 @@ export default function StallDashboard() {
         error
       } = await supabase.from("payments").select("*").eq("stall_id", stall.id).order("created_at", {
         ascending: false
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!stall?.id
+  });
+
+  // Fetch products for this stall
+  const {
+    data: products = []
+  } = useQuery({
+    queryKey: ["stall-products", stall?.id],
+    queryFn: async () => {
+      if (!stall?.id) return [];
+      const {
+        data,
+        error
+      } = await supabase.from("products").select("*").eq("stall_id", stall.id).order("product_number", {
+        ascending: true
       });
       if (error) throw error;
       return data;
@@ -330,6 +349,49 @@ export default function StallDashboard() {
                 {deliveredOrders.length === 0 ? <p className="text-center text-muted-foreground py-8">No delivered orders yet</p> : <OrderTable orders={deliveredOrders} showDeliverButton={false} />}
               </TabsContent>
             </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Registered Products */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Registered Products
+            </CardTitle>
+            <CardDescription>Your stall's product catalog</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {products.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No products registered yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>P.No</TableHead>
+                      <TableHead>Item Name</TableHead>
+                      <TableHead className="text-right">Cost Price</TableHead>
+                      <TableHead className="text-right">Selling Price</TableHead>
+                      <TableHead className="text-right">Event Margin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map(product => (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-mono">{product.product_number}</TableCell>
+                        <TableCell className="font-medium">{product.item_name}</TableCell>
+                        <TableCell className="text-right">₹{Number(product.cost_price).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">₹{Number(product.selling_price || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline">{product.event_margin || 20}%</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
