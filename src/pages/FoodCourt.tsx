@@ -118,6 +118,14 @@ export default function FoodCourt() {
   const [convertStallData, setConvertStallData] = useState({ counter_name: "", registration_fee: "" });
   const [productsListSearchTerm, setProductsListSearchTerm] = useState("");
   const [stallsSalesSearchTerm, setStallsSalesSearchTerm] = useState("");
+  
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editProductData, setEditProductData] = useState({
+    item_name: "",
+    cost_price: "",
+    selling_price: "",
+    event_margin: ""
+  });
 
   // Fetch stalls
   const { data: stalls = [], isLoading: stallsLoading } = useQuery({
@@ -466,9 +474,53 @@ export default function FoodCourt() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-with-billing'] });
       toast.success("Product deleted!");
     }
   });
+
+  // Edit product mutation
+  const editProductMutation = useMutation({
+    mutationFn: async (data: { id: string; product: typeof editProductData }) => {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          item_name: data.product.item_name,
+          cost_price: parseFloat(data.product.cost_price),
+          selling_price: parseFloat(data.product.selling_price),
+          event_margin: parseFloat(data.product.event_margin)
+        })
+        .eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-with-billing'] });
+      setEditingProduct(null);
+      toast.success("Product updated successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to update product: " + error.message);
+    }
+  });
+
+  const openEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setEditProductData({
+      item_name: product.item_name,
+      cost_price: product.cost_price.toString(),
+      selling_price: product.selling_price?.toString() || "",
+      event_margin: product.event_margin?.toString() || "20"
+    });
+  };
+
+  const handleEditProduct = () => {
+    if (!editingProduct || !editProductData.item_name || !editProductData.cost_price) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    editProductMutation.mutate({ id: editingProduct.id, product: editProductData });
+  };
 
   // Convert enquiry to stall mutation
   const convertToStallMutation = useMutation({
@@ -998,6 +1050,14 @@ export default function FoodCourt() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
+                                  className="h-8 w-8 text-primary"
+                                  onClick={() => openEditProduct(product)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
                                   className="h-8 w-8 text-destructive"
                                   onClick={() => deleteProductMutation.mutate(product.id)}
                                   disabled={deleteProductMutation.isPending}
@@ -1450,6 +1510,106 @@ export default function FoodCourt() {
                     Update Stall
                   </Button>
                   <Button variant="outline" onClick={() => setEditingStall(null)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Product Dialog */}
+        <Dialog open={!!editingProduct} onOpenChange={(open) => !open && setEditingProduct(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Product</DialogTitle>
+            </DialogHeader>
+            {editingProduct && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editProductName">Item Name *</Label>
+                  <Input
+                    id="editProductName"
+                    value={editProductData.item_name}
+                    onChange={(e) => setEditProductData({ ...editProductData, item_name: e.target.value })}
+                    placeholder="Enter item name"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editCostPrice">Cost Price (₹) *</Label>
+                    <Input
+                      id="editCostPrice"
+                      type="number"
+                      value={editProductData.cost_price}
+                      onChange={(e) => {
+                        const costPrice = parseFloat(e.target.value) || 0;
+                        const sellingPrice = parseFloat(editProductData.selling_price) || 0;
+                        if (sellingPrice > 0 && costPrice > 0) {
+                          const calculatedCommission = ((sellingPrice - costPrice) / sellingPrice) * 100;
+                          setEditProductData({ 
+                            ...editProductData, 
+                            cost_price: e.target.value,
+                            event_margin: calculatedCommission.toFixed(2)
+                          });
+                        } else {
+                          setEditProductData({ ...editProductData, cost_price: e.target.value });
+                        }
+                      }}
+                      placeholder="Enter cost price"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editSellingPrice">MRP (₹)</Label>
+                    <Input
+                      id="editSellingPrice"
+                      type="number"
+                      value={editProductData.selling_price}
+                      onChange={(e) => {
+                        const sellingPrice = parseFloat(e.target.value) || 0;
+                        const costPrice = parseFloat(editProductData.cost_price) || 0;
+                        if (costPrice > 0 && sellingPrice > 0) {
+                          const calculatedCommission = ((sellingPrice - costPrice) / sellingPrice) * 100;
+                          setEditProductData({ 
+                            ...editProductData, 
+                            selling_price: e.target.value,
+                            event_margin: calculatedCommission.toFixed(2)
+                          });
+                        } else {
+                          setEditProductData({ ...editProductData, selling_price: e.target.value });
+                        }
+                      }}
+                      placeholder="Enter MRP"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editEventMargin">Commission (%)</Label>
+                    <Input
+                      id="editEventMargin"
+                      type="number"
+                      value={editProductData.event_margin}
+                      onChange={(e) => {
+                        const commission = parseFloat(e.target.value) || 0;
+                        const costPrice = parseFloat(editProductData.cost_price) || 0;
+                        if (costPrice > 0 && commission > 0 && commission < 100) {
+                          const calculatedSellingPrice = costPrice / (1 - commission / 100);
+                          setEditProductData({ 
+                            ...editProductData, 
+                            event_margin: e.target.value,
+                            selling_price: calculatedSellingPrice.toFixed(2)
+                          });
+                        } else {
+                          setEditProductData({ ...editProductData, event_margin: e.target.value });
+                        }
+                      }}
+                      placeholder="20"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleEditProduct} disabled={editProductMutation.isPending}>
+                    {editProductMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Update Product
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditingProduct(null)}>Cancel</Button>
                 </div>
               </div>
             )}
