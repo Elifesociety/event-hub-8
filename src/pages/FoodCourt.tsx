@@ -133,6 +133,8 @@ export default function FoodCourt() {
   const [selectedCounters, setSelectedCounters] = useState<string[]>([]);
   const [editingCounter, setEditingCounter] = useState<Stall | null>(null);
   const [editCounterNumber, setEditCounterNumber] = useState("");
+  const [counterPanchayathFilter, setCounterPanchayathFilter] = useState<string>("");
+  const [counterSearchQuery, setCounterSearchQuery] = useState("");
 
   // Fetch stalls
   const { data: stalls = [], isLoading: stallsLoading } = useQuery({
@@ -1391,6 +1393,29 @@ export default function FoodCourt() {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                  <select
+                    value={counterPanchayathFilter}
+                    onChange={(e) => setCounterPanchayathFilter(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">All Panchayaths</option>
+                    {panchayaths.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by counter no., stall name, participant, mobile..."
+                      value={counterSearchQuery}
+                      onChange={(e) => setCounterSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
                 <div className="mb-4 text-sm text-muted-foreground">
                   Total Counters: {stalls.filter(s => s.counter_number).length} / {stalls.length} stalls have counter numbers assigned
                 </div>
@@ -1401,11 +1426,39 @@ export default function FoodCourt() {
                       <TableRow>
                         <TableHead className="w-12">
                           <Checkbox
-                            checked={stalls.filter(s => s.counter_number).length > 0 && 
-                              stalls.filter(s => s.counter_number).every(s => selectedCounters.includes(s.id))}
+                            checked={(() => {
+                              const filteredWithCounters = stalls
+                                .filter(s => s.counter_number)
+                                .filter(s => !counterPanchayathFilter || s.panchayath_id === counterPanchayathFilter)
+                                .filter(s => {
+                                  if (!counterSearchQuery) return true;
+                                  const query = counterSearchQuery.toLowerCase();
+                                  return (
+                                    s.counter_number?.toLowerCase().includes(query) ||
+                                    s.counter_name.toLowerCase().includes(query) ||
+                                    s.participant_name.toLowerCase().includes(query) ||
+                                    s.mobile?.toLowerCase().includes(query)
+                                  );
+                                });
+                              return filteredWithCounters.length > 0 && 
+                                filteredWithCounters.every(s => selectedCounters.includes(s.id));
+                            })()}
                             onCheckedChange={(checked) => {
+                              const filteredWithCounters = stalls
+                                .filter(s => s.counter_number)
+                                .filter(s => !counterPanchayathFilter || s.panchayath_id === counterPanchayathFilter)
+                                .filter(s => {
+                                  if (!counterSearchQuery) return true;
+                                  const query = counterSearchQuery.toLowerCase();
+                                  return (
+                                    s.counter_number?.toLowerCase().includes(query) ||
+                                    s.counter_name.toLowerCase().includes(query) ||
+                                    s.participant_name.toLowerCase().includes(query) ||
+                                    s.mobile?.toLowerCase().includes(query)
+                                  );
+                                });
                               if (checked) {
-                                setSelectedCounters(stalls.filter(s => s.counter_number).map(s => s.id));
+                                setSelectedCounters(filteredWithCounters.map(s => s.id));
                               } else {
                                 setSelectedCounters([]);
                               }
@@ -1424,6 +1477,17 @@ export default function FoodCourt() {
                     <TableBody>
                       {stalls
                         .filter(s => s.counter_number)
+                        .filter(s => !counterPanchayathFilter || s.panchayath_id === counterPanchayathFilter)
+                        .filter(s => {
+                          if (!counterSearchQuery) return true;
+                          const query = counterSearchQuery.toLowerCase();
+                          return (
+                            s.counter_number?.toLowerCase().includes(query) ||
+                            s.counter_name.toLowerCase().includes(query) ||
+                            s.participant_name.toLowerCase().includes(query) ||
+                            s.mobile?.toLowerCase().includes(query)
+                          );
+                        })
                         .sort((a, b) => {
                           const numA = parseInt(a.counter_number || '0');
                           const numB = parseInt(b.counter_number || '0');
@@ -1479,10 +1543,22 @@ export default function FoodCourt() {
                             </TableCell>
                           </TableRow>
                         ))}
-                      {stalls.filter(s => s.counter_number).length === 0 && (
+                      {stalls
+                        .filter(s => s.counter_number)
+                        .filter(s => !counterPanchayathFilter || s.panchayath_id === counterPanchayathFilter)
+                        .filter(s => {
+                          if (!counterSearchQuery) return true;
+                          const query = counterSearchQuery.toLowerCase();
+                          return (
+                            s.counter_number?.toLowerCase().includes(query) ||
+                            s.counter_name.toLowerCase().includes(query) ||
+                            s.participant_name.toLowerCase().includes(query) ||
+                            s.mobile?.toLowerCase().includes(query)
+                          );
+                        }).length === 0 && (
                         <TableRow>
                           <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                            No counter numbers assigned yet
+                            No counter numbers found
                           </TableCell>
                         </TableRow>
                       )}
