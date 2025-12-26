@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { List, TrendingUp } from "lucide-react";
 import { 
   Store, 
   Plus, 
@@ -44,6 +46,30 @@ interface Enquiry {
   created_at: string;
   panchayaths?: { name: string } | null;
   wards?: { ward_number: string; ward_name: string | null } | null;
+}
+
+interface ProductWithBilling {
+  id: string;
+  item_name: string;
+  product_number: string | null;
+  cost_price: number;
+  selling_price: number | null;
+  stall_name: string;
+  total_billed: number;
+  total_quantity: number;
+}
+
+interface StallWithBilling {
+  id: string;
+  counter_number: string | null;
+  counter_name: string;
+  participant_name: string;
+  mobile: string | null;
+  panchayath_name: string | null;
+  is_verified: boolean | null;
+  registration_fee: number | null;
+  total_billed: number;
+  product_count: number;
 }
 
 
@@ -90,6 +116,8 @@ export default function FoodCourt() {
   const [enquiryPanchayathFilter, setEnquiryPanchayathFilter] = useState<string>("");
   const [convertingEnquiry, setConvertingEnquiry] = useState<Enquiry | null>(null);
   const [convertStallData, setConvertStallData] = useState({ counter_name: "", registration_fee: "" });
+  const [productsListSearchTerm, setProductsListSearchTerm] = useState("");
+  const [stallsSalesSearchTerm, setStallsSalesSearchTerm] = useState("");
 
   // Fetch stalls
   const { data: stalls = [], isLoading: stallsLoading } = useQuery({
@@ -161,6 +189,112 @@ export default function FoodCourt() {
     }
   });
 
+  // Fetch products with billing data for Products List tab
+  const { data: productsWithBilling = [], isLoading: isLoadingProductsList } = useQuery({
+    queryKey: ["products-with-billing"],
+    queryFn: async () => {
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select(`
+          id,
+          item_name,
+          product_number,
+          cost_price,
+          selling_price,
+          stalls(counter_name)
+        `)
+        .order("product_number");
+      if (productsError) throw productsError;
+
+      const { data: transactions, error: transError } = await supabase
+        .from("billing_transactions")
+        .select("items");
+      if (transError) throw transError;
+
+      const productBillingMap: Record<string, { total: number; quantity: number }> = {};
+      
+      transactions?.forEach((tx) => {
+        const items = tx.items as Array<{ productId: string; quantity: number; subtotal: number }>;
+        items?.forEach((item) => {
+          if (!productBillingMap[item.productId]) {
+            productBillingMap[item.productId] = { total: 0, quantity: 0 };
+          }
+          productBillingMap[item.productId].total += item.subtotal || 0;
+          productBillingMap[item.productId].quantity += item.quantity || 0;
+        });
+      });
+
+      const result: ProductWithBilling[] = products?.map((p: any) => ({
+        id: p.id,
+        item_name: p.item_name,
+        product_number: p.product_number,
+        cost_price: p.cost_price,
+        selling_price: p.selling_price,
+        stall_name: p.stalls?.counter_name || "Unknown",
+        total_billed: productBillingMap[p.id]?.total || 0,
+        total_quantity: productBillingMap[p.id]?.quantity || 0,
+      })) || [];
+
+      return result.sort((a, b) => b.total_billed - a.total_billed);
+    },
+  });
+
+  // Fetch stalls with billing data for Stalls Sales tab
+  const { data: stallsWithBilling = [], isLoading: isLoadingStallsSales } = useQuery({
+    queryKey: ["stalls-with-billing"],
+    queryFn: async () => {
+      const { data: stallsData, error: stallsError } = await supabase
+        .from("stalls")
+        .select(`
+          id,
+          counter_number,
+          counter_name,
+          participant_name,
+          mobile,
+          is_verified,
+          registration_fee,
+          panchayaths(name)
+        `)
+        .order("counter_number");
+      if (stallsError) throw stallsError;
+
+      const { data: productsData, error: productsError } = await supabase
+        .from("products")
+        .select("stall_id");
+      if (productsError) throw productsError;
+
+      const productCountMap: Record<string, number> = {};
+      productsData?.forEach((p) => {
+        productCountMap[p.stall_id] = (productCountMap[p.stall_id] || 0) + 1;
+      });
+
+      const { data: transactions, error: transError } = await supabase
+        .from("billing_transactions")
+        .select("stall_id, total");
+      if (transError) throw transError;
+
+      const stallBillingMap: Record<string, number> = {};
+      transactions?.forEach((tx) => {
+        stallBillingMap[tx.stall_id] = (stallBillingMap[tx.stall_id] || 0) + Number(tx.total);
+      });
+
+      const result: StallWithBilling[] = stallsData?.map((s: any) => ({
+        id: s.id,
+        counter_number: s.counter_number,
+        counter_name: s.counter_name,
+        participant_name: s.participant_name,
+        mobile: s.mobile,
+        panchayath_name: s.panchayaths?.name || null,
+        is_verified: s.is_verified,
+        registration_fee: s.registration_fee,
+        total_billed: stallBillingMap[s.id] || 0,
+        product_count: productCountMap[s.id] || 0,
+      })) || [];
+
+      return result.sort((a, b) => b.total_billed - a.total_billed);
+    },
+  });
+
   // Filter verified enquiries by panchayath
   const filteredEnquiries = enquiryPanchayathFilter
     ? verifiedEnquiries.filter(e => e.panchayath_id === enquiryPanchayathFilter)
@@ -178,6 +312,21 @@ export default function FoodCourt() {
   const filteredProducts = stallIdsForPanchayath
     ? products.filter(p => stallIdsForPanchayath.includes(p.stall_id))
     : products;
+
+  // Filter for Products List tab
+  const filteredProductsList = productsWithBilling.filter((p) =>
+    p.item_name.toLowerCase().includes(productsListSearchTerm.toLowerCase()) ||
+    p.stall_name.toLowerCase().includes(productsListSearchTerm.toLowerCase()) ||
+    (p.product_number && p.product_number.includes(productsListSearchTerm))
+  );
+
+  // Filter for Stalls Sales tab
+  const filteredStallsSales = stallsWithBilling.filter((s) =>
+    s.counter_name.toLowerCase().includes(stallsSalesSearchTerm.toLowerCase()) ||
+    s.participant_name.toLowerCase().includes(stallsSalesSearchTerm.toLowerCase()) ||
+    (s.mobile && s.mobile.includes(stallsSalesSearchTerm)) ||
+    (s.counter_number && s.counter_number.includes(stallsSalesSearchTerm))
+  );
 
   // Add stall mutation
   const addStallMutation = useMutation({
@@ -443,7 +592,7 @@ export default function FoodCourt() {
         </div>
 
         <Tabs defaultValue="stalls" className="space-y-6">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5">
             <TabsTrigger value="stalls" className="flex items-center gap-2">
               <Store className="h-4 w-4" />
               Stall Booking
@@ -455,6 +604,14 @@ export default function FoodCourt() {
             <TabsTrigger value="enquiries" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Enquiries ({verifiedEnquiries.length})
+            </TabsTrigger>
+            <TabsTrigger value="products-list" className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              Products List
+            </TabsTrigger>
+            <TabsTrigger value="stalls-sales" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Stalls Sales
             </TabsTrigger>
           </TabsList>
 
@@ -933,6 +1090,150 @@ export default function FoodCourt() {
                 ))
               )}
             </div>
+          </TabsContent>
+
+          {/* Products List Tab */}
+          <TabsContent value="products-list">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <List className="h-5 w-5" />
+                  Products List
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by product name, stall, or number..."
+                      value={productsListSearchTerm}
+                      onChange={(e) => setProductsListSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {isLoadingProductsList ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                ) : filteredProductsList.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No products found</div>
+                ) : (
+                  <div className="border rounded-lg overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>P.No</TableHead>
+                          <TableHead>Product Name</TableHead>
+                          <TableHead>Stall</TableHead>
+                          <TableHead className="text-right">Cost Price</TableHead>
+                          <TableHead className="text-right">Selling Price</TableHead>
+                          <TableHead className="text-right">Qty Sold</TableHead>
+                          <TableHead className="text-right">Total Billed</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProductsList.map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell className="font-medium">{product.product_number || "-"}</TableCell>
+                            <TableCell>{product.item_name}</TableCell>
+                            <TableCell>{product.stall_name}</TableCell>
+                            <TableCell className="text-right">₹{product.cost_price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              {product.selling_price ? `₹${product.selling_price.toFixed(2)}` : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">{product.total_quantity}</TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">
+                              ₹{product.total_billed.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <div className="mt-4 text-sm text-muted-foreground">
+                  Total: {filteredProductsList.length} products | 
+                  Total Billed: ₹{productsWithBilling.reduce((sum, p) => sum + p.total_billed, 0).toFixed(2)}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Stalls Sales Tab */}
+          <TabsContent value="stalls-sales">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Stalls Sales
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by stall name, participant, mobile, or number..."
+                      value={stallsSalesSearchTerm}
+                      onChange={(e) => setStallsSalesSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {isLoadingStallsSales ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                ) : filteredStallsSales.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No stalls found</div>
+                ) : (
+                  <div className="border rounded-lg overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>S.No</TableHead>
+                          <TableHead>Stall Name</TableHead>
+                          <TableHead>Participant</TableHead>
+                          <TableHead>Mobile</TableHead>
+                          <TableHead>Panchayath</TableHead>
+                          <TableHead className="text-center">Products</TableHead>
+                          <TableHead className="text-center">Verified</TableHead>
+                          <TableHead className="text-right">Reg. Fee</TableHead>
+                          <TableHead className="text-right">Total Billed</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredStallsSales.map((stall) => (
+                          <TableRow key={stall.id}>
+                            <TableCell className="font-medium">{stall.counter_number || "-"}</TableCell>
+                            <TableCell>{stall.counter_name}</TableCell>
+                            <TableCell>{stall.participant_name}</TableCell>
+                            <TableCell>{stall.mobile || "-"}</TableCell>
+                            <TableCell>{stall.panchayath_name || "-"}</TableCell>
+                            <TableCell className="text-center">{stall.product_count}</TableCell>
+                            <TableCell className="text-center">
+                              <span className={`px-2 py-1 rounded-full text-xs ${stall.is_verified ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                {stall.is_verified ? "Yes" : "No"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">₹{(stall.registration_fee || 0).toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">
+                              ₹{stall.total_billed.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <div className="mt-4 text-sm text-muted-foreground">
+                  Total: {filteredStallsSales.length} stalls | 
+                  Total Billed: ₹{stallsWithBilling.reduce((sum, s) => sum + s.total_billed, 0).toFixed(2)}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
