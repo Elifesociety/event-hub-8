@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { List, TrendingUp } from "lucide-react";
+import { List, TrendingUp, Hash } from "lucide-react";
 import { 
   Store, 
   Plus, 
@@ -21,8 +21,10 @@ import {
   ArrowRightCircle,
   Edit,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  XCircle
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
@@ -126,6 +128,11 @@ export default function FoodCourt() {
     selling_price: "",
     event_margin: ""
   });
+
+  // Counter tab state
+  const [selectedCounters, setSelectedCounters] = useState<string[]>([]);
+  const [editingCounter, setEditingCounter] = useState<Stall | null>(null);
+  const [editCounterNumber, setEditCounterNumber] = useState("");
 
   // Fetch stalls
   const { data: stalls = [], isLoading: stallsLoading } = useQuery({
@@ -504,6 +511,55 @@ export default function FoodCourt() {
     }
   });
 
+  // Update counter number mutation
+  const updateCounterNumberMutation = useMutation({
+    mutationFn: async (data: { id: string; counter_number: string }) => {
+      // Check for duplicate counter number (excluding current stall)
+      if (data.counter_number && data.counter_number.trim()) {
+        const existingStall = stalls.find(s => s.counter_number === data.counter_number.trim() && s.id !== data.id);
+        if (existingStall) {
+          throw new Error(`Counter number already exists for stall: ${existingStall.counter_name}`);
+        }
+      }
+      
+      const { error } = await supabase
+        .from('stalls')
+        .update({ counter_number: data.counter_number || null })
+        .eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stalls'] });
+      queryClient.invalidateQueries({ queryKey: ['stalls-with-billing'] });
+      setEditingCounter(null);
+      setEditCounterNumber("");
+      toast.success("Counter number updated!");
+    },
+    onError: (error) => {
+      toast.error("Failed to update counter: " + error.message);
+    }
+  });
+
+  // Bulk clear counter numbers mutation
+  const bulkClearCountersMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('stalls')
+        .update({ counter_number: null })
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stalls'] });
+      queryClient.invalidateQueries({ queryKey: ['stalls-with-billing'] });
+      setSelectedCounters([]);
+      toast.success("Counter numbers cleared!");
+    },
+    onError: (error) => {
+      toast.error("Failed to clear counters: " + error.message);
+    }
+  });
+
   const openEditProduct = (product: Product) => {
     setEditingProduct(product);
     setEditProductData({
@@ -644,26 +700,35 @@ export default function FoodCourt() {
         </div>
 
         <Tabs defaultValue="stalls" className="space-y-6">
-          <TabsList className="grid w-full max-w-3xl grid-cols-5">
-            <TabsTrigger value="stalls" className="flex items-center gap-2">
+          <TabsList className="flex flex-wrap h-auto gap-1 w-full md:grid md:grid-cols-6 md:max-w-4xl">
+            <TabsTrigger value="stalls" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
               <Store className="h-4 w-4" />
-              Stall Booking
+              <span className="hidden sm:inline">Stall Booking</span>
+              <span className="sm:hidden">Stalls</span>
             </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
+            <TabsTrigger value="products" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
               <Package className="h-4 w-4" />
               Products
             </TabsTrigger>
-            <TabsTrigger value="enquiries" className="flex items-center gap-2">
+            <TabsTrigger value="counters" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
+              <Hash className="h-4 w-4" />
+              Counters
+            </TabsTrigger>
+            <TabsTrigger value="enquiries" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
               <FileText className="h-4 w-4" />
-              Enquiries ({verifiedEnquiries.length})
+              <span className="hidden sm:inline">Enquiries</span>
+              <span className="sm:hidden">Enq</span>
+              <span className="text-xs">({verifiedEnquiries.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="products-list" className="flex items-center gap-2">
+            <TabsTrigger value="products-list" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
               <List className="h-4 w-4" />
-              Products List
+              <span className="hidden sm:inline">Products List</span>
+              <span className="sm:hidden">P.List</span>
             </TabsTrigger>
-            <TabsTrigger value="stalls-sales" className="flex items-center gap-2">
+            <TabsTrigger value="stalls-sales" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
               <TrendingUp className="h-4 w-4" />
-              Stalls Sales
+              <span className="hidden sm:inline">Stalls Sales</span>
+              <span className="sm:hidden">Sales</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1295,6 +1360,184 @@ export default function FoodCourt() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Counters Tab */}
+          <TabsContent value="counters">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <Hash className="h-5 w-5" />
+                    Counter Numbers Management
+                  </CardTitle>
+                  {selectedCounters.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{selectedCounters.length} selected</Badge>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => bulkClearCountersMutation.mutate(selectedCounters)}
+                        disabled={bulkClearCountersMutation.isPending}
+                      >
+                        {bulkClearCountersMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <XCircle className="h-4 w-4 mr-2" />
+                        )}
+                        Clear Selected
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4 text-sm text-muted-foreground">
+                  Total Counters: {stalls.filter(s => s.counter_number).length} / {stalls.length} stalls have counter numbers assigned
+                </div>
+
+                <div className="border rounded-lg overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={stalls.filter(s => s.counter_number).length > 0 && 
+                              stalls.filter(s => s.counter_number).every(s => selectedCounters.includes(s.id))}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedCounters(stalls.filter(s => s.counter_number).map(s => s.id));
+                              } else {
+                                setSelectedCounters([]);
+                              }
+                            }}
+                          />
+                        </TableHead>
+                        <TableHead>Counter No.</TableHead>
+                        <TableHead>Stall Name</TableHead>
+                        <TableHead>Participant</TableHead>
+                        <TableHead className="hidden md:table-cell">Mobile</TableHead>
+                        <TableHead className="hidden md:table-cell">Panchayath</TableHead>
+                        <TableHead className="text-center">Verified</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stalls
+                        .filter(s => s.counter_number)
+                        .sort((a, b) => {
+                          const numA = parseInt(a.counter_number || '0');
+                          const numB = parseInt(b.counter_number || '0');
+                          return numA - numB;
+                        })
+                        .map((stall) => (
+                          <TableRow key={stall.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedCounters.includes(stall.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedCounters([...selectedCounters, stall.id]);
+                                  } else {
+                                    setSelectedCounters(selectedCounters.filter(id => id !== stall.id));
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="font-bold text-primary">#{stall.counter_number}</TableCell>
+                            <TableCell className="font-medium">{stall.counter_name}</TableCell>
+                            <TableCell>{stall.participant_name}</TableCell>
+                            <TableCell className="hidden md:table-cell">{stall.mobile || "-"}</TableCell>
+                            <TableCell className="hidden md:table-cell">{stall.panchayaths?.name || "-"}</TableCell>
+                            <TableCell className="text-center">
+                              <span className={`px-2 py-1 rounded-full text-xs ${stall.is_verified ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                {stall.is_verified ? "Yes" : "No"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setEditingCounter(stall);
+                                    setEditCounterNumber(stall.counter_number || "");
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive"
+                                  onClick={() => updateCounterNumberMutation.mutate({ id: stall.id, counter_number: "" })}
+                                  disabled={updateCounterNumberMutation.isPending}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      {stalls.filter(s => s.counter_number).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            No counter numbers assigned yet
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Stalls without counter numbers */}
+                <div className="mt-6">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    Stalls without counter numbers ({stalls.filter(s => !s.counter_number).length})
+                  </h3>
+                  {stalls.filter(s => !s.counter_number).length > 0 && (
+                    <div className="border rounded-lg overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Stall Name</TableHead>
+                            <TableHead>Participant</TableHead>
+                            <TableHead className="hidden md:table-cell">Mobile</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {stalls
+                            .filter(s => !s.counter_number)
+                            .map((stall) => (
+                              <TableRow key={stall.id}>
+                                <TableCell className="font-medium">{stall.counter_name}</TableCell>
+                                <TableCell>{stall.participant_name}</TableCell>
+                                <TableCell className="hidden md:table-cell">{stall.mobile || "-"}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingCounter(stall);
+                                      setEditCounterNumber("");
+                                    }}
+                                  >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Assign
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* View Details Dialog - moved outside Tabs for proper rendering */}
@@ -1610,6 +1853,45 @@ export default function FoodCourt() {
                     Update Product
                   </Button>
                   <Button variant="outline" onClick={() => setEditingProduct(null)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Counter Number Dialog */}
+        <Dialog open={!!editingCounter} onOpenChange={(open) => !open && setEditingCounter(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{editingCounter?.counter_number ? 'Edit' : 'Assign'} Counter Number</DialogTitle>
+            </DialogHeader>
+            {editingCounter && (
+              <div className="space-y-4 py-4">
+                <div className="bg-muted/50 p-3 rounded-lg space-y-1">
+                  <p className="text-sm"><span className="text-muted-foreground">Stall:</span> {editingCounter.counter_name}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Participant:</span> {editingCounter.participant_name}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="counterNumber">Counter Number</Label>
+                  <Input
+                    id="counterNumber"
+                    value={editCounterNumber}
+                    onChange={(e) => setEditCounterNumber(e.target.value)}
+                    placeholder="Enter counter number"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    onClick={() => updateCounterNumberMutation.mutate({ 
+                      id: editingCounter.id, 
+                      counter_number: editCounterNumber 
+                    })}
+                    disabled={updateCounterNumberMutation.isPending}
+                  >
+                    {updateCounterNumberMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {editingCounter.counter_number ? 'Update' : 'Assign'}
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditingCounter(null)}>Cancel</Button>
                 </div>
               </div>
             )}
