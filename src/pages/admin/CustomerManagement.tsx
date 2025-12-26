@@ -345,17 +345,13 @@ export default function CustomerManagement() {
                   <Users className="h-4 w-4" />
                   Participants
                 </TabsTrigger>
-                <TabsTrigger value="products" className="flex items-center gap-2" asChild>
-                  <Link to="/food-court" className="flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Products List
-                  </Link>
+                <TabsTrigger value="products" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Products
                 </TabsTrigger>
-                <TabsTrigger value="stalls" className="flex items-center gap-2" asChild>
-                  <Link to="/food-court" className="flex items-center gap-2">
-                    <Store className="h-4 w-4" />
-                    Stalls Sales
-                  </Link>
+                <TabsTrigger value="stalls" className="flex items-center gap-2">
+                  <Store className="h-4 w-4" />
+                  Stalls
                 </TabsTrigger>
               </TabsList>
 
